@@ -1,0 +1,453 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { Text } from '@react-three/drei';
+import * as THREE from 'three';
+
+interface TwilioVideoTextureProps {
+  position: [number, number, number];
+  roomName: string;
+  userName: string;
+  onConnected?: () => void;
+}
+
+export function TwilioVideoTexture({ position: initialPosition, roomName, userName, onConnected }: TwilioVideoTextureProps) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const textureRef = useRef<THREE.VideoTexture | null>(null);
+  const [videoTexture, setVideoTexture] = useState<THREE.VideoTexture | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [participantName, setParticipantName] = useState('Coach');
+  const [position, setPosition] = useState<[number, number, number]>(initialPosition);
+  const [scale, setScale] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
+  const roomRef = useRef<any>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    let video: HTMLVideoElement | null = null;
+
+    const connectToTwilio = async () => {
+      try {
+        console.log('🔄 Connecting to Twilio room:', roomName, 'as:', userName);
+
+        // Dynamic import of Twilio Video
+        const Video = await import('twilio-video');
+
+        // Get token from API
+        const response = await fetch('/api/twilio/video-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            room: roomName,
+            identity: `${userName}-vr-${Date.now()}`
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('❌ Token API error:', response.status, errorData);
+          throw new Error(`Failed to get token: ${response.status}`);
+        }
+
+        const { token } = await response.json();
+        console.log('✅ Got token, connecting to room...');
+
+        // Create video element
+        video = document.createElement('video');
+        video.autoplay = true;
+        video.muted = true; // Mute for autoplay in VR headsets
+        video.playsInline = true;
+        video.setAttribute('playsinline', 'true'); // Extra for iOS/VR
+        video.setAttribute('webkit-playsinline', 'true'); // Safari/WebKit
+
+        // Position off-screen instead of display:none (fixes black texture in VR)
+        video.style.position = 'absolute';
+        video.style.left = '-9999px';
+        video.style.opacity = '0';
+        video.style.pointerEvents = 'none';
+
+        document.body.appendChild(video);
+        videoRef.current = video;
+        console.log('📺 Video element created (muted, off-screen for VR)');
+
+        // Connect to room
+        const room = await Video.connect(token, {
+          name: roomName,
+          audio: true,
+          video: { width: 640, height: 480 }
+        });
+
+        roomRef.current = room;
+
+        if (!mounted) {
+          room.disconnect();
+          return;
+        }
+
+        console.log('🎥 Connected to Twilio room:', room.name);
+        console.log('👥 Participants already in room:', room.participants.size);
+        setIsConnected(true);
+        onConnected?.();
+
+        // Handle remote participants
+        room.participants.forEach((participant) => {
+          console.log('👤 Participant already in room:', participant.identity);
+          console.log('📹 Tracks:', Array.from(participant.tracks.values()).map((p: any) => ({
+            kind: p.kind,
+            isSubscribed: p.isSubscribed,
+            trackName: p.trackName
+          })));
+          attachParticipant(participant, video!);
+        });
+
+        room.on('participantConnected', (participant) => {
+          console.log('✅ Participant connected:', participant.identity);
+          attachParticipant(participant, video!);
+        });
+
+        room.on('participantDisconnected', (participant) => {
+          console.log('👋 Participant disconnected:', participant.identity);
+        });
+
+        // Create video texture
+        if (video && mounted) {
+          const texture = new THREE.VideoTexture(video);
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.format = THREE.RGBAFormat;
+          texture.colorSpace = THREE.SRGBColorSpace; // Fix color space for VR
+          texture.generateMipmaps = false; // Performance optimization
+          texture.needsUpdate = true;
+          textureRef.current = texture;
+          setVideoTexture(texture);
+          console.log('📺 Video texture created with sRGB color space');
+        }
+
+      } catch (error) {
+        console.error('❌ Twilio connection error:', error);
+      }
+    };
+
+    const attachParticipant = (participant: any, videoElement: HTMLVideoElement) => {
+      setParticipantName(participant.identity.split('-')[0] || 'Coach');
+
+      console.log('🔗 Attaching participant:', participant.identity);
+      participant.tracks.forEach((publication: any) => {
+        console.log('📦 Track publication:', {
+          kind: publication.kind,
+          isSubscribed: publication.isSubscribed,
+          trackName: publication.trackName,
+          hasTrack: !!publication.track
+        });
+
+        if (publication.isSubscribed && publication.track) {
+          console.log('✅ Attaching already-subscribed track:', publication.kind);
+          attachTrack(publication.track, videoElement);
+        }
+      });
+
+      participant.on('trackSubscribed', (track: any) => {
+        console.log('🎬 Track subscribed event:', track.kind);
+        attachTrack(track, videoElement);
+      });
+    };
+
+    const attachTrack = (track: any, videoElement: HTMLVideoElement) => {
+      console.log('🎯 attachTrack called:', track.kind);
+      if (track.kind === 'video') {
+        const element = track.attach();
+        console.log('📹 Video track attached, element type:', element.constructor.name);
+        // Use the video element's stream
+        if (element instanceof HTMLVideoElement && videoElement) {
+          console.log('✅ Setting srcObject');
+
+          // Remove old event listeners to prevent duplicates
+          videoElement.onloadeddata = null;
+          videoElement.onplaying = null;
+          videoElement.oncanplay = null;
+
+          // Set the source
+          videoElement.srcObject = element.srcObject;
+
+          // Wait for video to be ready before playing
+          const tryPlay = () => {
+            console.log('🎬 Attempting to play video...');
+            const playPromise = videoElement.play();
+
+            if (playPromise !== undefined) {
+              playPromise
+                .then(() => {
+                  console.log('🎥 Video playback started successfully');
+                  if (textureRef.current) {
+                    textureRef.current.needsUpdate = true;
+                  }
+                })
+                .catch((err) => {
+                  console.error('❌ Video play error:', err.name, err.message);
+                  // Retry after a short delay for VR headsets
+                  if (err.name === 'AbortError' || err.name === 'NotAllowedError') {
+                    console.log('🔄 Retrying play in 500ms...');
+                    setTimeout(tryPlay, 500);
+                  }
+                });
+            }
+          };
+
+          // Add event listeners
+          videoElement.onloadeddata = () => {
+            console.log('📊 Video metadata loaded, size:', videoElement.videoWidth, 'x', videoElement.videoHeight);
+            if (textureRef.current) {
+              textureRef.current.needsUpdate = true;
+              console.log('🔄 Texture marked for update');
+            }
+          };
+
+          videoElement.oncanplay = () => {
+            console.log('✅ Video can play - attempting playback');
+            tryPlay();
+          };
+
+          videoElement.onplaying = () => {
+            console.log('▶️ Video is now playing');
+            if (textureRef.current) {
+              textureRef.current.needsUpdate = true;
+            }
+          };
+
+          // For VR headsets, also try playing immediately (muted videos can autoplay)
+          if (videoElement.readyState >= 3) {
+            // HAVE_FUTURE_DATA or better
+            tryPlay();
+          }
+        }
+      }
+    };
+
+    connectToTwilio();
+
+    return () => {
+      mounted = false;
+      if (roomRef.current) {
+        roomRef.current.disconnect();
+      }
+      if (video && video.parentNode) {
+        video.parentNode.removeChild(video);
+      }
+    };
+  }, [roomName, userName]);
+
+  // Update texture and animate
+  useFrame((state) => {
+    // Continuously update video texture
+    if (textureRef.current && videoRef.current && videoRef.current.readyState >= videoRef.current.HAVE_CURRENT_DATA) {
+      textureRef.current.needsUpdate = true;
+    }
+
+    // Animate speaking indicator when connected
+    if (meshRef.current && isConnected && !isDragging) {
+      const pulseScale = 1 + Math.sin(state.clock.elapsedTime * 3) * 0.03;
+      meshRef.current.scale.set(scale * pulseScale, scale * pulseScale, 1);
+    } else if (meshRef.current) {
+      meshRef.current.scale.set(scale, scale, 1);
+    }
+  });
+
+  // Drag handlers
+  const handlePointerDown = () => {
+    setIsDragging(true);
+  };
+
+  const handlePointerUp = () => {
+    setIsDragging(false);
+  };
+
+  const handlePointerMove = (e: any) => {
+    if (isDragging && e.point) {
+      setPosition([e.point.x, e.point.y, e.point.z]);
+    }
+  };
+
+  // Resize handler (mouse wheel)
+  const handleWheel = (e: any) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const delta = e.deltaY * -0.001;
+    const newScale = Math.max(0.5, Math.min(3, scale + delta));
+    setScale(newScale);
+    console.log('📏 Coach video resizing:', newScale.toFixed(2) + 'x');
+  };
+
+  // Resize button handlers
+  const handleZoomIn = (e: any) => {
+    e.stopPropagation();
+    const newScale = Math.min(3, scale + 0.2);
+    setScale(newScale);
+    console.log('➕ Coach zoom in:', newScale.toFixed(2) + 'x');
+  };
+
+  const handleZoomOut = (e: any) => {
+    e.stopPropagation();
+    const newScale = Math.max(0.5, scale - 0.2);
+    setScale(newScale);
+    console.log('➖ Coach zoom out:', newScale.toFixed(2) + 'x');
+  };
+
+  const baseSize = 2;
+  const heightRatio = 2.5 / 2;
+
+  return (
+    <group position={position}>
+      {/* Video Screen */}
+      <mesh
+        ref={meshRef}
+        castShadow
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerMove={handlePointerMove}
+        onWheel={handleWheel}
+      >
+        <planeGeometry args={[baseSize * scale, baseSize * heightRatio * scale]} />
+        {videoTexture ? (
+          <meshStandardMaterial
+            map={videoTexture}
+            emissive={isDragging ? "#FFD700" : "#D4AF38"}
+            emissiveIntensity={isDragging ? 0.5 : 0.2}
+            side={THREE.DoubleSide}
+          />
+        ) : (
+          <meshStandardMaterial
+            color={isDragging ? "#FFD700" : "#D4AF38"}
+            emissive={isDragging ? "#FFD700" : "#D4AF38"}
+            emissiveIntensity={isDragging ? 0.7 : 0.5}
+          />
+        )}
+      </mesh>
+
+      {/* Status Label */}
+      <Text
+        position={[0, (baseSize * heightRatio * scale) / 2 + 0.2, 0.1]}
+        fontSize={0.15 * scale}
+        color={isConnected ? "#00FF00" : "#FFD700"}
+        anchorX="center"
+        outlineWidth={0.01}
+        outlineColor="#000"
+      >
+        {isConnected ? `🎯 ${participantName} LIVE` : '⏳ Connecting...'}
+      </Text>
+
+      {/* Instructions */}
+      {!isDragging && (
+        <Text
+          position={[0, -(baseSize * heightRatio * scale) / 2 - 0.2, 0.1]}
+          fontSize={0.08 * scale}
+          color="#FFFFFF"
+          anchorX="center"
+          outlineWidth={0.005}
+          outlineColor="#000"
+        >
+          Drag to Move
+        </Text>
+      )}
+
+      {/* Resize Controls - Top Corners */}
+      {/* Zoom In Button - Top Right */}
+      <group position={[(baseSize * scale) / 2 - 0.15, (baseSize * heightRatio * scale) / 2 + 0.3, 0.1]}>
+        <mesh onClick={handleZoomIn}>
+          <circleGeometry args={[0.12 * scale, 32]} />
+          <meshStandardMaterial
+            color="#00FF00"
+            emissive="#00FF00"
+            emissiveIntensity={0.5}
+            transparent
+            opacity={0.8}
+          />
+        </mesh>
+        <Text
+          position={[0, 0, 0.01]}
+          fontSize={0.15 * scale}
+          color="#FFFFFF"
+          anchorX="center"
+          anchorY="middle"
+          outlineWidth={0.01}
+          outlineColor="#000"
+        >
+          +
+        </Text>
+      </group>
+
+      {/* Zoom Out Button - Top Left */}
+      <group position={[-(baseSize * scale) / 2 + 0.15, (baseSize * heightRatio * scale) / 2 + 0.3, 0.1]}>
+        <mesh onClick={handleZoomOut}>
+          <circleGeometry args={[0.12 * scale, 32]} />
+          <meshStandardMaterial
+            color="#FF6B6B"
+            emissive="#FF6B6B"
+            emissiveIntensity={0.5}
+            transparent
+            opacity={0.8}
+          />
+        </mesh>
+        <Text
+          position={[0, 0, 0.01]}
+          fontSize={0.15 * scale}
+          color="#FFFFFF"
+          anchorX="center"
+          anchorY="middle"
+          outlineWidth={0.01}
+          outlineColor="#000"
+        >
+          −
+        </Text>
+      </group>
+
+      {/* Scale Indicator */}
+      <Text
+        position={[0, (baseSize * heightRatio * scale) / 2 + 0.3, 0.1]}
+        fontSize={0.08 * scale}
+        color="#FFD700"
+        anchorX="center"
+        outlineWidth={0.005}
+        outlineColor="#000"
+      >
+        {(scale * 100).toFixed(0)}%
+      </Text>
+
+      {/* Holographic Frame */}
+      <mesh position={[0, 0, -0.1]}>
+        <planeGeometry args={[(baseSize + 0.2) * scale, (baseSize * heightRatio + 0.2) * scale]} />
+        <meshStandardMaterial
+          color={isDragging ? "#FFD700" : "#00ffff"}
+          transparent
+          opacity={isDragging ? 0.2 : 0.1}
+          wireframe
+        />
+      </mesh>
+
+      {/* Connection Status Indicator */}
+      {isConnected && (
+        <mesh position={[(baseSize * scale) / 2 + 0.2, (baseSize * heightRatio * scale) / 2 + 0.2, 0.1]}>
+          <sphereGeometry args={[0.05 * scale, 16, 16]} />
+          <meshStandardMaterial
+            color="#00ff00"
+            emissive="#00ff00"
+            emissiveIntensity={1}
+          />
+        </mesh>
+      )}
+
+      {/* Drag Indicator */}
+      {isDragging && (
+        <mesh position={[-(baseSize * scale) / 2 - 0.2, (baseSize * heightRatio * scale) / 2 + 0.2, 0.1]}>
+          <sphereGeometry args={[0.05 * scale, 16, 16]} />
+          <meshStandardMaterial
+            color="#FFD700"
+            emissive="#FFD700"
+            emissiveIntensity={1}
+          />
+        </mesh>
+      )}
+    </group>
+  );
+}
