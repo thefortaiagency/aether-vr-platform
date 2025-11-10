@@ -8,7 +8,7 @@ import {
   Radio,
   Camera,
 } from 'lucide-react';
-import VRSceneClient from './components/vr/VRSceneClient';
+import VRScene from './components/vr/VRScene';
 import VRButton from './components/vr/VRButton';
 
 function VRTraining() {
@@ -26,6 +26,8 @@ function VRTraining() {
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | undefined>('/riseandgrind.png');
   const [screenshotFlash, setScreenshotFlash] = useState(false);
   const [screenshotStatus, setScreenshotStatus] = useState('');
+  const [vrActive, setVRActive] = useState(false);
+  const [generatingBackground, setGeneratingBackground] = useState(false);
 
   // Ref to access the VR scene container
   const sceneContainerRef = useRef<HTMLDivElement>(null);
