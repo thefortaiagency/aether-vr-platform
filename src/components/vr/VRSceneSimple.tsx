@@ -21,7 +21,7 @@ const xrStore = createXRStore({
   foveation: 0,
 });
 
-function SimpleScene() {
+function SimpleScene({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
   return (
     <>
       <ambientLight intensity={0.8} />
@@ -36,14 +36,22 @@ function SimpleScene() {
       {/* Floor */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
         <planeGeometry args={[200, 200]} />
-        <meshStandardMaterial color="#333" />
+        <meshStandardMaterial color="#333" transparent opacity={0} />
       </mesh>
+
+      {/* 360° background sphere (if provided) */}
+      {backgroundImageUrl && (
+        <mesh>
+          <sphereGeometry args={[50, 64, 64]} />
+          <meshBasicMaterial color="#444" side={2} />
+        </mesh>
+      )}
     </>
   );
 }
 
 export default function VRSceneSimple(props: VRSceneProps) {
-  const { onVRStart, onVREnd } = props;
+  const { onVRStart, onVREnd, backgroundImageUrl } = props;
 
   React.useEffect(() => {
     const unsubscribe = xrStore.subscribe((state) => {
@@ -77,7 +85,7 @@ export default function VRSceneSimple(props: VRSceneProps) {
         }}
       >
         <XR store={xrStore} referenceSpace="local-floor" foveation={0}>
-          <SimpleScene />
+          <SimpleScene backgroundImageUrl={backgroundImageUrl} />
         </XR>
       </Canvas>
     </div>
