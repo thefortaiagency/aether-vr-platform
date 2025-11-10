@@ -12,6 +12,7 @@ interface VRSceneProps {
   roomName?: string;
   userName?: string;
   onScreenshot?: () => void;
+  cameraDeviceId?: string;
 }
 
 // Wrapper component - fixed AvatarMirror controllers bug

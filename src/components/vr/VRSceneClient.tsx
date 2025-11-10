@@ -24,6 +24,7 @@ interface VRSceneProps {
   roomName?: string;
   userName?: string;
   onScreenshot?: () => void; // Add screenshot callback
+  cameraDeviceId?: string; // Camera selection for mirror
 }
 
 // Create XR store OUTSIDE component to prevent recreation on re-renders
@@ -192,7 +193,7 @@ function VideoPanel({ position: initialPosition, rotation, title }: { position: 
 }
 
 // Main VR Scene Content
-function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirror = true, roomName, userName, onScreenshot }: VRSceneProps) {
+function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirror = true, roomName, userName, onScreenshot, cameraDeviceId }: VRSceneProps) {
   const [layers, setLayers] = React.useState<{
     background: XREquirectLayer | null;
     technique: XRQuadLayer | null;
@@ -302,6 +303,7 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         <AvatarMirror
           position={[-1, 1.6, 0.5]}
           rotation={[0, Math.PI / 6, 0]}
+          cameraDeviceId={cameraDeviceId}
         />
       )}
 

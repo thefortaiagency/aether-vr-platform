@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from './components/ui/button';
 import {
   Video,
@@ -29,8 +29,39 @@ function VRTraining() {
   const [vrActive, setVRActive] = useState(false);
   const [generatingBackground, setGeneratingBackground] = useState(false);
 
+  // Camera selection
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCameraIndex, setSelectedCameraIndex] = useState(0);
+
   // Ref to access the VR scene container
   const sceneContainerRef = useRef<HTMLDivElement>(null);
+
+  // Enumerate available cameras on mount
+  useEffect(() => {
+    const getCameras = async () => {
+      try {
+        // Request permission first
+        await navigator.mediaDevices.getUserMedia({ video: true });
+
+        // Then enumerate devices
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        setAvailableCameras(videoDevices);
+        console.log('📹 Found cameras:', videoDevices.map(d => d.label));
+      } catch (error) {
+        console.error('❌ Error enumerating cameras:', error);
+      }
+    };
+
+    getCameras();
+  }, []);
+
+  const cycleCamera = () => {
+    if (availableCameras.length > 0) {
+      setSelectedCameraIndex((prev) => (prev + 1) % availableCameras.length);
+      console.log('📹 Switched to camera:', availableCameras[(selectedCameraIndex + 1) % availableCameras.length]?.label);
+    }
+  };
 
   const generateBackground = async () => {
     setGeneratingBackground(true);
@@ -163,6 +194,7 @@ function VRTraining() {
           roomName={roomName}
           userName={userName}
           onScreenshot={takeScreenshot}
+          cameraDeviceId={availableCameras[selectedCameraIndex]?.deviceId}
         />
       </div>
 
@@ -238,6 +270,19 @@ function VRTraining() {
         >
           {showMirror ? 'Hide Mirror' : 'Show Mirror'}
         </Button>
+
+        {/* Switch Camera Button */}
+        {availableCameras.length > 1 && (
+          <Button
+            onClick={cycleCamera}
+            size="lg"
+            variant="outline"
+            className="rounded-full px-6"
+            title={`Current: ${availableCameras[selectedCameraIndex]?.label || 'Default'}`}
+          >
+            📹 Switch Camera ({selectedCameraIndex + 1}/{availableCameras.length})
+          </Button>
+        )}
 
         {/* Record Button */}
         <Button

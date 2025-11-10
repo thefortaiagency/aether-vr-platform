@@ -13,11 +13,13 @@ import '@tensorflow/tfjs-backend-webgpu';
 interface AvatarMirrorProps {
   position?: [number, number, number];
   rotation?: [number, number, number];
+  cameraDeviceId?: string; // Allow external camera selection
 }
 
 export function AvatarMirror({
   position = [0, 1.5, -2],
-  rotation = [0, 0, 0]
+  rotation = [0, 0, 0],
+  cameraDeviceId
 }: AvatarMirrorProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -57,12 +59,20 @@ export function AvatarMirror({
 
         // Get webcam access - LOWER resolution for VR (Quest 2 GPU memory limit)
         // 320x240 = 1/4 the memory of 640x480 (saves ~900KB GPU memory)
+        const videoConstraints: MediaTrackConstraints = {
+          width: 320,
+          height: 240,
+        };
+
+        // Use specific camera if deviceId provided, otherwise default to user-facing
+        if (cameraDeviceId) {
+          videoConstraints.deviceId = { exact: cameraDeviceId };
+        } else {
+          videoConstraints.facingMode = 'user';
+        }
+
         stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: 320,
-            height: 240,
-            facingMode: 'user'
-          },
+          video: videoConstraints,
           audio: false
         });
 
@@ -168,7 +178,7 @@ export function AvatarMirror({
         canvasRef.current = null;
       }
     };
-  }, []);
+  }, [cameraDeviceId]); // Re-initialize when camera changes
 
   // Render loop - throttled pose detection for VR performance
   useFrame(async () => {
