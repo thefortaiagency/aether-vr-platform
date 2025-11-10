@@ -1,5 +1,5 @@
 import React from 'react';
-import VRSceneSimple from './VRSceneSimple';
+import VRSceneClient from './VRSceneClient';
 
 interface VRSceneProps {
   activeExercise: string;
@@ -14,7 +14,7 @@ interface VRSceneProps {
   onScreenshot?: () => void;
 }
 
-// Simple wrapper component - using simplified version for testing
+// Wrapper component - fixed AvatarMirror controllers bug
 export default function VRScene(props: VRSceneProps) {
-  return <VRSceneSimple {...props} />;
+  return <VRSceneClient {...props} />;
 }

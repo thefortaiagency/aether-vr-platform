@@ -224,7 +224,7 @@ export function AvatarMirror({
 
   // Handle VR controller interactions
   useEffect(() => {
-    if (controllers.length === 0) return;
+    if (!controllers || controllers.length === 0) return;
 
     const handleSelectStart = (controller: any) => {
       // Grip button = drag
