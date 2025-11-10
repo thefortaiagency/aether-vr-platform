@@ -1,7 +1,5 @@
-'use client';
-
 import React from 'react';
-import dynamic from 'next/dynamic';
+import VRSceneClient from './VRSceneClient';
 
 interface VRSceneProps {
   activeExercise: string;
@@ -14,31 +12,7 @@ interface VRSceneProps {
   userName?: string;
 }
 
-// Dynamically import the actual VR scene to prevent SSR issues
-const VRSceneClient = dynamic(() => import('./VRSceneClient'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-full bg-transparent flex items-center justify-center">
-      <div className="text-white text-xl">Loading VR...</div>
-    </div>
-  ),
-});
-
-// Main wrapper component
+// Simple wrapper component (no Next.js dynamic import needed)
 export default function VRScene(props: VRSceneProps) {
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="w-full h-full bg-transparent flex items-center justify-center">
-        <div className="text-white text-xl">Loading VR...</div>
-      </div>
-    );
-  }
-
   return <VRSceneClient {...props} />;
 }
