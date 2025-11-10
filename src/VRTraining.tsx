@@ -288,15 +288,4 @@ function VRTraining() {
   );
 }
 
-// Wrap in Suspense to handle useSearchParams() during static generation
-export default function VRTrainingRoom() {
-  return (
-    <Suspense fallback={
-      <div className="w-full h-full bg-black flex items-center justify-center">
-        <div className="text-white text-xl">Loading VR Training Room...</div>
-      </div>
-    }>
-      <VRTrainingRoomContent />
-    </Suspense>
-  );
-}
+export default VRTraining;
