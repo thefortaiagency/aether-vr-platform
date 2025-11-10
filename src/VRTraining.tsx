@@ -1,10 +1,5 @@
-'use client';
-
-import React, { useState, useRef, useEffect, Suspense } from 'react';
-import { useSession } from 'next-auth/react';
-import { useSearchParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
-import { Button } from '@/components/ui/button';
+import { useState, useRef } from 'react';
+import { Button } from './components/ui/button';
 import {
   Video,
   Mic,
@@ -13,36 +8,24 @@ import {
   Radio,
   Camera,
 } from 'lucide-react';
-// Dynamic import VRScene with ssr: false to prevent Next.js bundled React conflict
-const VRScene = dynamic(() => import('@/components/vr/VRScene'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-full bg-black flex items-center justify-center">
-      <div className="text-white text-xl">Loading VR Scene...</div>
-    </div>
-  )
-});
-const VRButton = dynamic(() => import('@/components/vr/VRButton'), { ssr: false });
+import VRSceneClient from './components/vr/VRSceneClient';
+import VRButton from './components/vr/VRButton';
 
-function VRTrainingRoomContent() {
-  const { data: session } = useSession();
-  const searchParams = useSearchParams();
+function VRTraining() {
+  // Get URL parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const roomName = urlParams.get('room') || undefined;
+  const userName = urlParams.get('user') || 'Wrestler';
 
   const [showCoach, setShowCoach] = useState(true);
   const [showTechnique, setShowTechnique] = useState(false); // OFF by default - mirror shows first
   const [showMirror, setShowMirror] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
-  const [vrActive, setVRActive] = useState(false);
   const [recording, setRecording] = useState(false);
-  const [generatingBackground, setGeneratingBackground] = useState(false);
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | undefined>('/riseandgrind.png');
   const [screenshotFlash, setScreenshotFlash] = useState(false);
   const [screenshotStatus, setScreenshotStatus] = useState('');
-
-  // Get room name from URL parameters
-  const roomName = searchParams.get('room') || undefined;
-  const userName = session?.user?.name || 'Wrestler';
 
   // Ref to access the VR scene container
   const sceneContainerRef = useRef<HTMLDivElement>(null);
