@@ -297,24 +297,13 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         />
       )}
 
-      {/* BlazePose Mirror - CONDITIONAL (Quest 2 GPU memory limit) */}
-      {/* Only show mirror when technique video is OFF (saves 4MB GPU memory) */}
-      {showMirror && !videoEnabled && (
+      {/* BlazePose Mirror - Always show when enabled */}
+      {showMirror && (
         <AvatarMirror
-          position={[-1, 1.6, 0.5]}
-          rotation={[0, Math.PI / 6, 0]}
+          position={[0, 1.6, -2]}
+          rotation={[0, 0, 0]}
           cameraDeviceId={cameraDeviceId}
         />
-      )}
-
-      {/* Warning message when mirror + video both enabled */}
-      {showMirror && videoEnabled && (
-        <group position={[-1, 1.6, 0.5]}>
-          <mesh>
-            <planeGeometry args={[2, 1]} />
-            <meshBasicMaterial color="#FF0000" />
-          </mesh>
-        </group>
       )}
     </>
   );
