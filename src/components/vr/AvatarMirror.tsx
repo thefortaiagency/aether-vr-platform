@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
-import { useXR } from '@react-three/xr';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs-core';
@@ -34,19 +33,9 @@ export function AvatarMirror({
   const lastPoseRef = useRef<poseDetection.Keypoint[] | null>(null);
 
   // Store as arrays (tuples) for React Three Fiber - NOT Vector3 objects
-  const [mirrorPosition, setMirrorPosition] = useState<[number, number, number]>(position);
-  const [mirrorScale, setMirrorScale] = useState<[number, number, number]>([2.5, 3, 1]); // MUCH LARGER for VR visibility (2.5m wide x 3m tall)
-  const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
+  const mirrorPosition = position;
+  const mirrorScale: [number, number, number] = [2.5, 3, 1]; // MUCH LARGER for VR visibility (2.5m wide x 3m tall)
   const [textureReady, setTextureReady] = useState(false);
-
-  // Track controller position for dragging
-  const dragStartPosRef = useRef<THREE.Vector3 | null>(null);
-  const mirrorStartPosRef = useRef<[number, number, number]>(position);
-  const scaleStartRef = useRef<number>(1);
-
-  const { controllers } = useXR();
-  const { camera } = useThree();
 
   // Initialize webcam and pose detector (client-side only)
   useEffect(() => {
@@ -236,43 +225,6 @@ export function AvatarMirror({
       console.warn('[AvatarMirror] Render loop error:', error);
     }
   });
-
-  // Handle VR controller interactions
-  useEffect(() => {
-    if (!controllers || controllers.length === 0) return;
-
-    const handleSelectStart = (controller: any) => {
-      // Grip button = drag
-      if (controller.inputSource?.gamepad?.buttons[1]?.pressed) {
-        setIsDragging(true);
-      }
-      // Trigger button = resize
-      if (controller.inputSource?.gamepad?.buttons[0]?.pressed) {
-        setIsResizing(true);
-      }
-    };
-
-    const handleSelectEnd = () => {
-      setIsDragging(false);
-      setIsResizing(false);
-    };
-
-    controllers.forEach((controller) => {
-      if (controller.controller) {
-        controller.controller.addEventListener('selectstart', () => handleSelectStart(controller));
-        controller.controller.addEventListener('selectend', handleSelectEnd);
-      }
-    });
-
-    return () => {
-      controllers.forEach((controller) => {
-        if (controller.controller) {
-          controller.controller.removeEventListener('selectstart', () => handleSelectStart(controller));
-          controller.controller.removeEventListener('selectend', handleSelectEnd);
-        }
-      });
-    };
-  }, [controllers]);
 
   // Don't render anything until texture is ready
   if (!textureReady || !textureRef.current) {

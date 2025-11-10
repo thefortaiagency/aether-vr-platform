@@ -249,12 +249,6 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         <Gymnasium backgroundImageUrl={backgroundImageUrl} />
       )}
 
-      {/* DEBUG: Test cube that should always be visible */}
-      <mesh position={[0, 1.6, -2]}>
-        <boxGeometry args={[0.3, 0.3, 0.3]} />
-        <meshStandardMaterial color="#00ff00" emissive="#00ff00" emissiveIntensity={0.5} />
-      </mesh>
-
       {/* Coach video panel - positioned to the right */}
       {/* KEEP as Three.js texture for now (Twilio integration) */}
       {showCoach && roomName && userName ? (
