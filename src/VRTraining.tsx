@@ -177,7 +177,7 @@ function VRTraining() {
       </div>
 
       {/* Controls - Bottom Center */}
-      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-4 bg-black/80 backdrop-blur-md px-6 py-4 rounded-full border border-white/10">
+      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-4 bg-black/95 backdrop-blur-md px-6 py-4 rounded-full border-2 border-white/30 shadow-2xl">
         {/* Mic Toggle */}
         <Button
           onClick={() => setIsMuted(!isMuted)}
