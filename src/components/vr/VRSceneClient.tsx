@@ -32,7 +32,7 @@ const xrStore = createXRStore({
   foveation: 0, // Disable foveated rendering for better quality
 });
 
-// Gymnasium Environment - 360° sphere for VR
+// Gymnasium Environment - Curved background screen for VR (not full 360°)
 function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
   const [texture, setTexture] = React.useState<THREE.Texture | null>(null);
 
@@ -66,7 +66,7 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
 
         loadedTexture = tex;
         setTexture(tex);
-        console.log('[GYMNASIUM] ✅ Texture state updated, should render sphere');
+        console.log('[GYMNASIUM] ✅ Texture state updated, should render background');
       },
       // onProgress - Loading callback
       (xhr) => {
@@ -98,10 +98,19 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
         <meshStandardMaterial transparent opacity={0} />
       </mesh>
 
-      {/* 360° background sphere for VR mode */}
+      {/* Large curved background screen - wraps 180° around user */}
       {texture && (
-        <mesh>
-          <sphereGeometry args={[50, 64, 64]} />
+        <mesh position={[0, 1.6, 0]}>
+          <cylinderGeometry args={[
+            15,  // radiusTop - 15m radius
+            15,  // radiusBottom - 15m radius
+            10,  // height - 10m tall
+            64,  // radialSegments - smooth curve
+            1,   // heightSegments
+            true, // openEnded - open top/bottom
+            0,   // thetaStart - start angle
+            Math.PI  // thetaLength - 180° wrap (half circle)
+          ]} />
           <meshBasicMaterial
             map={texture}
             side={THREE.BackSide}
@@ -110,13 +119,13 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
         </mesh>
       )}
 
+      {/* Fallback: Simple dark environment if no texture */}
       {!texture && (
-        <mesh>
-          <sphereGeometry args={[50, 64, 64]} />
+        <mesh position={[0, 1.6, 0]}>
+          <cylinderGeometry args={[15, 15, 10, 64, 1, true, 0, Math.PI * 2]} />
           <meshBasicMaterial
-            color="#ff0000"
+            color="#1a1a2e"
             side={THREE.BackSide}
-            wireframe={true}
           />
         </mesh>
       )}

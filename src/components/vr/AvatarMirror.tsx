@@ -38,6 +38,11 @@ export function AvatarMirror({
   const [isResizing, setIsResizing] = useState(false);
   const [textureReady, setTextureReady] = useState(false);
 
+  // Track controller position for dragging
+  const dragStartPosRef = useRef<THREE.Vector3 | null>(null);
+  const mirrorStartPosRef = useRef<[number, number, number]>(position);
+  const scaleStartRef = useRef<number>(1);
+
   const { controllers } = useXR();
   const { camera } = useThree();
 
