@@ -110,17 +110,18 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
     return null;
   }
 
-  console.log('[GYMNASIUM] 🎬 Rendering background sphere');
+  console.log('[GYMNASIUM] 🎬 Rendering background sphere at [0, 0, 0], radius 50');
 
   try {
     return (
-      <mesh>
+      <mesh position={[0, 0, 0]}>
         <sphereGeometry args={[50, 32, 32]} />
         <meshBasicMaterial
           map={texture}
           color={0xffffff}
           side={THREE.BackSide}
           toneMapped={false}
+          transparent={false}
         />
       </mesh>
     );
@@ -291,7 +292,7 @@ export default function VRSceneClient(props: VRSceneProps) {
     <div className="w-full h-full">
       <Canvas
         shadows
-        camera={{ position: [0, 1.6, 0], fov: 75 }}
+        camera={{ position: [0, 1.6, 0.1], fov: 75, near: 0.01, far: 1000 }}
         gl={{
           antialias: true,
           alpha: true,
