@@ -235,39 +235,27 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
     }
   }, [session, layers.background, layers.technique, layers.webcam]);
 
-  // Make camera look forward
-  React.useEffect(() => {
-    console.log('[VR SCENE] Setting up camera to look forward');
-  }, []);
-
   return (
     <>
-      {/* SUPER BRIGHT LIGHTING */}
-      <ambientLight intensity={2.0} />
-      <pointLight position={[0, 0, 0]} intensity={2.0} />
+      {/* Good lighting for VR */}
+      <ambientLight intensity={1.0} />
+      <directionalLight position={[0, 10, 0]} intensity={1.0} />
 
-      {/* GIANT RED BOX - RIGHT IN YOUR FACE */}
-      <mesh position={[0, 1.6, -2]}>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshBasicMaterial color="red" />
-      </mesh>
-
-      {/* GIANT YELLOW SPHERE - BEHIND THE BOX */}
-      <mesh position={[0, 1.6, -4]}>
-        <sphereGeometry args={[2, 32, 32]} />
-        <meshBasicMaterial color="yellow" />
-      </mesh>
-
-      {/* GREEN FLOOR - BELOW */}
+      {/* Floor */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-        <planeGeometry args={[20, 20]} />
-        <meshBasicMaterial color="lime" side={2} />
+        <planeGeometry args={[100, 100]} />
+        <meshBasicMaterial color={0x1a1a2e} />
       </mesh>
 
-      {/* BLUE CEILING - TO TEST IF WE'RE LOOKING UP OR DOWN */}
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 4, 0]}>
-        <planeGeometry args={[20, 20]} />
-        <meshBasicMaterial color="blue" side={2} />
+      {/* 360° Wrestling Room Background */}
+      {backgroundImageUrl && (
+        <Gymnasium backgroundImageUrl={backgroundImageUrl} />
+      )}
+
+      {/* Test box to confirm scene is working */}
+      <mesh position={[0, 1.6, -2]}>
+        <boxGeometry args={[0.5, 0.5, 0.5]} />
+        <meshStandardMaterial color="red" />
       </mesh>
     </>
   );
