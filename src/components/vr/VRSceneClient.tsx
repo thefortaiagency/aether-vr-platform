@@ -121,17 +121,28 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
 
   try {
     return (
-      <mesh position={[0, 0, 0]}>
-        <sphereGeometry args={[50, 60, 40]} />
-        <meshStandardMaterial
-          map={texture}
-          side={THREE.BackSide}
-          toneMapped={false}
-          emissive="#ffffff"
-          emissiveMap={texture}
-          emissiveIntensity={0.8}
-        />
-      </mesh>
+      <>
+        {/* Bright background sphere */}
+        <mesh position={[0, 0, 0]}>
+          <sphereGeometry args={[50, 60, 40]} />
+          <meshBasicMaterial
+            map={texture}
+            side={THREE.BackSide}
+            toneMapped={false}
+          />
+        </mesh>
+
+        {/* Additional bright overlay to increase luminosity */}
+        <mesh position={[0, 0, 0]}>
+          <sphereGeometry args={[49.9, 60, 40]} />
+          <meshBasicMaterial
+            color="#ffffff"
+            side={THREE.BackSide}
+            transparent
+            opacity={0.3}
+          />
+        </mesh>
+      </>
     );
   } catch (error) {
     console.error('[GYMNASIUM] ❌ Render error:', error);
@@ -272,10 +283,23 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         console.log(`[VIDEO ${index}] ${video.name} at [${x.toFixed(2)}, ${videoHeight}, ${-z.toFixed(2)}]`);
         return (
           <group key={`technique-${index}`} position={[x, videoHeight, -z]}>
-            {/* Debug box to verify positioning */}
+            {/* Glowing debug box - bright yellow that you can't miss */}
             <mesh>
               <boxGeometry args={[2, 1.5, 0.1]} />
-              <meshBasicMaterial color="#FFD700" wireframe />
+              <meshBasicMaterial
+                color="#FFFF00"
+                wireframe
+                transparent
+                opacity={1.0}
+              />
+            </mesh>
+            {/* Solid bright backing so it shows up */}
+            <mesh position={[0, 0, -0.05]}>
+              <planeGeometry args={[2, 1.5]} />
+              <meshBasicMaterial
+                color="#FFFF00"
+                toneMapped={false}
+              />
             </mesh>
             <VideoTextureSimple
               position={[0, 0, 0]}
