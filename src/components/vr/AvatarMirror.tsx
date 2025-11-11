@@ -76,35 +76,55 @@ export function AvatarMirror({
         video.playsInline = true;
         videoRef.current = video;
 
+        // Start video playback FIRST
+        await video.play();
+        console.log('[AvatarMirror] ✅ Webcam started and playing');
+
+        // Wait for video to have at least one frame ready
+        await new Promise<void>((resolve) => {
+          const checkVideoReady = () => {
+            if (video.readyState >= 2) { // HAVE_CURRENT_DATA
+              resolve();
+            } else {
+              requestAnimationFrame(checkVideoReady);
+            }
+          };
+          checkVideoReady();
+        });
+        console.log('[AvatarMirror] ✅ Video has frame data ready');
+
         // Create canvas for rendering - match lower resolution
         const canvas = document.createElement('canvas');
         canvas.width = 320;
         canvas.height = 240;
         canvasRef.current = canvas;
 
-        // Draw initial frame to canvas before creating texture
+        // Draw ACTUAL video frame to canvas before creating texture
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.fillStyle = '#000000';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.save();
+          ctx.scale(-1, 1);
+          ctx.translate(-canvas.width, 0);
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          ctx.restore();
         }
+        console.log('[AvatarMirror] ✅ First video frame drawn to canvas');
 
-        // Start video playback
-        await video.play();
-        console.log('[AvatarMirror] ✅ Webcam started and playing');
-
-        // Create CanvasTexture AFTER video is playing
+        // Create CanvasTexture with REAL video data
         const texture = new THREE.CanvasTexture(canvas);
         texture.minFilter = THREE.LinearFilter;
         texture.magFilter = THREE.LinearFilter;
         texture.colorSpace = THREE.SRGBColorSpace;
-        texture.needsUpdate = true; // CRITICAL: Force initial texture upload
+        texture.needsUpdate = true;
 
-        console.log('[AvatarMirror] CanvasTexture created');
+        console.log('[AvatarMirror] CanvasTexture created with video frame');
 
-        // CRITICAL: Set texture in STATE so R3F can properly initialize material uniforms
+        // Wait one more frame to ensure texture is uploaded to GPU
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        // NOW set texture in state - material will be created with fully ready texture
         setCanvasTexture(texture);
-        console.log('[AvatarMirror] ✅ Texture set in state, material will reinitialize');
+        console.log('[AvatarMirror] ✅ Texture ready and set in state');
 
         // Initialize TensorFlow backend with WebGPU fallback
         console.log('[AvatarMirror] Initializing TensorFlow backend...');
