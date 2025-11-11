@@ -9,6 +9,7 @@
 - ❌ Webcam mirror NOT visible in VR headset
 - ✅ Reference cubes (red/green/blue) ARE visible in VR
 - ✅ No JavaScript errors
+- ⚠️ Meta Quest browsers pause camera streams unless the XR session requests the `camera-access` optional feature
 
 **Environment**:
 - Platform: Standalone Vite + React + Three.js (NOT Next.js)
@@ -89,6 +90,7 @@
 - **Reason**: Switching components causes camera permission re-request which fails in VR
 - **Current**: This is the active approach
 - **Result**: STILL not visible in VR
+- **Observation**: Without WebXR `camera-access` the Quest suspends the MediaStream when immersive mode starts, so the mirror never receives new frames
 
 ---
 

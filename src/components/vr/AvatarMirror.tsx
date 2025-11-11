@@ -26,6 +26,7 @@ export function AvatarMirror({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const canvasContextRef = useRef<CanvasRenderingContext2D | null>(null);
   const detectorRef = useRef<poseDetection.PoseDetector | null>(null);
+  const videoTrackRef = useRef<MediaStreamTrack | null>(null);
 
   // XR session tracking for video playback management
   const { session } = useXR();
@@ -41,6 +42,7 @@ export function AvatarMirror({
   useEffect(() => {
     let mounted = true;
     let stream: MediaStream | null = null;
+    let cleanupTrackListeners: (() => void) | null = null;
 
     const initializeMirror = async () => {
       try {
@@ -68,6 +70,46 @@ export function AvatarMirror({
         if (!mounted) {
           stream.getTracks().forEach(track => track.stop());
           return;
+        }
+
+        const [videoTrack] = stream.getVideoTracks();
+        videoTrackRef.current = videoTrack ?? null;
+
+        if (videoTrack) {
+          const handleTrackEnded = () => {
+            console.warn('[AvatarMirror] ⚠️ Video track ended inside XR', {
+              readyState: videoTrack.readyState,
+              muted: videoTrack.muted,
+            });
+          };
+          const handleTrackMute = () => {
+            console.warn('[AvatarMirror] ⚠️ Video track muted', {
+              readyState: videoTrack.readyState,
+            });
+          };
+          const handleTrackUnmute = () => {
+            console.log('[AvatarMirror] ✅ Video track unmuted', {
+              readyState: videoTrack.readyState,
+            });
+          };
+
+          videoTrack.addEventListener('ended', handleTrackEnded);
+          videoTrack.addEventListener('mute', handleTrackMute);
+          videoTrack.addEventListener('unmute', handleTrackUnmute);
+
+          cleanupTrackListeners = () => {
+            videoTrack.removeEventListener('ended', handleTrackEnded);
+            videoTrack.removeEventListener('mute', handleTrackMute);
+            videoTrack.removeEventListener('unmute', handleTrackUnmute);
+          };
+
+          console.log('[AvatarMirror] ✅ Video track ready', {
+            id: videoTrack.id,
+            label: videoTrack.label,
+            readyState: videoTrack.readyState,
+          });
+        } else {
+          console.warn('[AvatarMirror] ⚠️ No video track found on webcam stream');
         }
 
         // Create video element and add to DOM (required for VR)
@@ -192,6 +234,9 @@ export function AvatarMirror({
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
+      if (cleanupTrackListeners) {
+        cleanupTrackListeners();
+      }
       if (videoRef.current && videoRef.current.parentNode) {
         videoRef.current.parentNode.removeChild(videoRef.current);
       }
@@ -200,6 +245,7 @@ export function AvatarMirror({
       if (detectorRef.current) {
         detectorRef.current.dispose();
       }
+      videoTrackRef.current = null;
     };
   }, [cameraDeviceId]); // Re-initialize when camera changes
 
@@ -259,6 +305,7 @@ export function AvatarMirror({
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvasContextRef.current;
+    const videoTrack = videoTrackRef.current;
 
     if (texture && video && video.readyState >= video.HAVE_CURRENT_DATA) {
       if (canvas && context) {
@@ -291,6 +338,13 @@ export function AvatarMirror({
         console.warn('[AvatarMirror] ⚠️ Material map mismatch detected in XR – auto-repairing');
         materialRef.current.map = texture;
         materialRef.current.needsUpdate = true;
+      }
+
+      if (videoTrack && videoTrack.readyState !== 'live' && Math.random() < 0.032) {
+        console.warn('[AvatarMirror] ⚠️ Video track not live during frame', {
+          readyState: videoTrack.readyState,
+          muted: videoTrack.muted,
+        });
       }
 
       if (session && materialRef.current && Math.random() < 0.016) {

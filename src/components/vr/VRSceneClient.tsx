@@ -13,6 +13,11 @@ import { WebcamXRLayer } from './WebcamXRLayer';
 import { BackgroundXRLayer } from './BackgroundXRLayer';
 import { VideoXRLayer } from './VideoXRLayer';
 import { updateLayerStack, supportsXRLayers } from '@/lib/xr-layers';
+import { ensureCameraAccessFeature } from '@/lib/xr-camera-access';
+
+if (typeof window !== 'undefined') {
+  ensureCameraAccessFeature();
+}
 
 interface VRSceneProps {
   activeExercise: string;
