@@ -292,8 +292,8 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         />
       )} */}
 
-      {/* Webcam Mirror - Hardware Accelerated XR Layer */}
-      {showMirror && supportsXRLayers() && (
+      {/* Webcam Mirror - Use XR Layer only when IN VR with support */}
+      {showMirror && session && supportsXRLayers() && (
         <WebcamXRLayer
           position={[0, 1.6, -2]}
           rotation={[0, 0, 0]}
@@ -307,8 +307,8 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         />
       )}
 
-      {/* Fallback: Regular AvatarMirror if XR Layers not supported */}
-      {showMirror && !supportsXRLayers() && (
+      {/* Fallback: AvatarMirror for desktop OR VR without XR Layers support */}
+      {showMirror && (!session || !supportsXRLayers()) && (
         <AvatarMirror
           position={[0, 1.6, -2]}
           rotation={[0, 0, 0]}
