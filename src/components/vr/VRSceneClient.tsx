@@ -346,16 +346,20 @@ export default function VRSceneClient(props: VRSceneProps) {
           console.log('📐 Canvas size:', state.gl.domElement.width, 'x', state.gl.domElement.height);
           console.log('📐 Viewport:', state.viewport.width, 'x', state.viewport.height);
 
-          // FORCE BRIGHTNESS SETTINGS
+          // NUCLEAR BRIGHTNESS SETTINGS
           state.gl.toneMapping = THREE.NoToneMapping;
-          state.gl.toneMappingExposure = 2.0; // DOUBLE EXPOSURE
-          state.scene.background = new THREE.Color('#808080'); // Gray background
+          state.gl.toneMappingExposure = 10.0; // 10X EXPOSURE
+          state.scene.background = new THREE.Color('#FFFFFF'); // PURE WHITE background
+
+          // Force gamma correction
+          state.gl.gammaFactor = 2.2;
 
           // Camera starts at [0, 1.6, 0.1] looking forward
           // User can look around with mouse/VR to see 360° environment
           state.camera.lookAt(0, 1.6, -5);
           console.log('📷 Camera looking forward into 360° environment');
           console.log('💡 Tone mapping:', state.gl.toneMapping, 'Exposure:', state.gl.toneMappingExposure);
+          console.log('🎨 Scene background:', state.scene.background);
         }}
       >
         {/* Wrap scene content with XR component and pass the store */}
