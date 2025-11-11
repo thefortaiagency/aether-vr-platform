@@ -13,6 +13,11 @@ import { WebcamXRLayer } from './WebcamXRLayer';
 import { BackgroundXRLayer } from './BackgroundXRLayer';
 import { VideoXRLayer } from './VideoXRLayer';
 import { updateLayerStack, supportsXRLayers } from '@/lib/xr-layers';
+import { ensureCameraAccessFeature } from '@/lib/xr-camera-access';
+
+if (typeof window !== 'undefined') {
+  ensureCameraAccessFeature();
+}
 
 interface VRSceneProps {
   activeExercise: string;
@@ -299,6 +304,9 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
           position={[0, 1.6, -2]}
           rotation={[0, 0, 0]}
           cameraDeviceId={cameraDeviceId}
+          onXRLayerChange={(layer) => {
+            setLayers((prev) => ({ ...prev, webcam: layer }));
+          }}
         />
       )}
     </>
