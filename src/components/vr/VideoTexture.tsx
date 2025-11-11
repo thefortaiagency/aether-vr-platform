@@ -280,6 +280,11 @@ export function VideoTexture({ position: initialPosition, rotation, videoUrl, ti
   const baseWidth = 3.2;
   const baseHeight = 2;
 
+  // Don't render anything until video texture is ready
+  if (!videoTexture || !isLoaded) {
+    return null;
+  }
+
   return (
     <group position={position} rotation={rotation3D} scale={[scale, scale, 1]}>
       {/* Video Screen */}
@@ -292,19 +297,11 @@ export function VideoTexture({ position: initialPosition, rotation, videoUrl, ti
         onClick={handleClick}
       >
         <planeGeometry args={[baseWidth, baseHeight]} />
-        {videoTexture ? (
-          <meshBasicMaterial
-            map={videoTexture}
-            toneMapped={false}
-            side={THREE.DoubleSide}
-          />
-        ) : (
-          <meshStandardMaterial
-            color={isDragging ? "#FFD700" : "#1a1a1a"}
-            emissive={isDragging ? "#FFD700" : "#444444"}
-            emissiveIntensity={isDragging ? 0.5 : 0.2}
-          />
-        )}
+        <meshBasicMaterial
+          map={videoTexture}
+          toneMapped={false}
+          side={THREE.DoubleSide}
+        />
       </mesh>
 
       {/* Title Label */}

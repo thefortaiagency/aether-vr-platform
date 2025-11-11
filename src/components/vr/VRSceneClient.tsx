@@ -54,6 +54,7 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
       return;
     }
 
+    let mounted = true;
     console.log('[GYMNASIUM] Loading texture from:', backgroundImageUrl);
     const loader = new THREE.TextureLoader();
 
@@ -63,6 +64,12 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
       backgroundImageUrl,
       // onLoad - Success callback
       (tex) => {
+        if (!mounted) {
+          console.log('[GYMNASIUM] ⚠️ Component unmounted before texture loaded');
+          tex.dispose();
+          return;
+        }
+
         console.log('[GYMNASIUM] ✅ Texture loaded successfully');
         console.log('[GYMNASIUM] Image dimensions:', tex.image.width, 'x', tex.image.height);
 
@@ -77,17 +84,20 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
       },
       // onProgress - Loading callback
       (xhr) => {
+        if (!mounted) return;
         const percentComplete = xhr.total > 0 ? (xhr.loaded / xhr.total) * 100 : 0;
         console.log('[GYMNASIUM] Loading progress:', percentComplete.toFixed(0) + '%');
       },
       // onError - Error callback
       (error) => {
+        if (!mounted) return;
         console.error('[GYMNASIUM] ❌ Failed to load texture:', error);
         console.error('[GYMNASIUM] ❌ URL was:', backgroundImageUrl);
       }
     );
 
     return () => {
+      mounted = false;
       console.log('[GYMNASIUM] Cleanup - disposing texture');
       if (loadedTexture) {
         loadedTexture.dispose();
