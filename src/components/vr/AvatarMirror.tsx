@@ -167,18 +167,24 @@ export function AvatarMirror({
       if (detectorRef.current) {
         detectorRef.current.dispose();
       }
-      // Dispose texture and canvas to prevent memory leaks
-      if (canvasTexture) {
-        canvasTexture.dispose();
-        setCanvasTexture(null);
-      }
+      // Cleanup will be handled by the next effect run or unmount
       if (canvasRef.current) {
         canvasRef.current.width = 1;
         canvasRef.current.height = 1;
         canvasRef.current = null;
       }
     };
-  }, [cameraDeviceId, canvasTexture]); // Re-initialize when camera changes
+  }, [cameraDeviceId]); // Re-initialize when camera changes (NOT canvasTexture - that would cause loop)
+
+  // Cleanup texture on unmount
+  useEffect(() => {
+    return () => {
+      if (canvasTexture) {
+        console.log('[AvatarMirror] Disposing texture on unmount');
+        canvasTexture.dispose();
+      }
+    };
+  }, [canvasTexture]);
 
   // Render loop - throttled pose detection for VR performance
   useFrame(async () => {
