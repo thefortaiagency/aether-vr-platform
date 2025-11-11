@@ -97,14 +97,15 @@ export function AvatarMirror({
 
         console.log('[AvatarMirror] VideoTexture created (NO skeleton overlay for now)');
 
-        // Create material with VideoTexture
+        // Create material with VideoTexture + bright fallback color to test
         const material = new THREE.MeshBasicMaterial({
           map: texture,
+          color: 0x00ffff, // BRIGHT CYAN - if you see this, texture isn't rendering
           side: THREE.DoubleSide,
           toneMapped: false,
         });
 
-        console.log('[AvatarMirror] Material created with VideoTexture');
+        console.log('[AvatarMirror] Material created with VideoTexture + cyan fallback color');
 
         // Set material in state (texture updates automatically with video)
         setMirrorMaterial(material);
