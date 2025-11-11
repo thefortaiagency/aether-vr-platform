@@ -36,13 +36,20 @@ export function WebcamXRLayer({
   const { session } = useXR();
 
   useEffect(() => {
-    if (!session) return;
+    console.log('[WEBCAM XR LAYER] Effect triggered - session:', !!session, 'supportsXRLayers:', supportsXRLayers());
+
+    if (!session) {
+      console.log('[WEBCAM XR LAYER] No session, skipping initialization');
+      return;
+    }
 
     // Check if Layers API is supported
     if (!supportsXRLayers()) {
       console.warn('[WEBCAM XR LAYER] WebXR Layers API not supported');
       return;
     }
+
+    console.log('[WEBCAM XR LAYER] Starting initialization...');
 
     let mounted = true;
     let video: HTMLVideoElement | null = null;

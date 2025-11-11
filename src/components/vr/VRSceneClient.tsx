@@ -292,23 +292,9 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         />
       )} */}
 
-      {/* Webcam Mirror - Use XR Layer only when IN VR with support */}
-      {showMirror && session && supportsXRLayers() && (
-        <WebcamXRLayer
-          position={[0, 1.6, -2]}
-          rotation={[0, 0, 0]}
-          width={2.5}
-          height={3.0}
-          cameraDeviceId={cameraDeviceId}
-          onLayerCreated={(layer) => {
-            console.log('[VR SCENE] Webcam layer ready');
-            setLayers((prev) => ({ ...prev, webcam: layer }));
-          }}
-        />
-      )}
-
-      {/* Fallback: AvatarMirror for desktop OR VR without XR Layers support */}
-      {showMirror && (!session || !supportsXRLayers()) && (
+      {/* Webcam Mirror - Use AvatarMirror for both desktop AND VR */}
+      {/* XR Layers causes camera permission issues when transitioning to VR */}
+      {showMirror && (
         <AvatarMirror
           position={[0, 1.6, -2]}
           rotation={[0, 0, 0]}
