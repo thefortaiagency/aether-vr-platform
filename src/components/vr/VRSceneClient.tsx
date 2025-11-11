@@ -229,93 +229,21 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
 
   return (
     <>
-      {/* VR Controller Screenshot Support - Press Y/B button or grip to take screenshot */}
-      {onScreenshot && <VRControllerScreenshot onScreenshot={onScreenshot} />}
-
       {/* Good lighting for VR */}
       <ambientLight intensity={1.0} />
       <directionalLight position={[0, 10, 0]} intensity={1.0} />
 
-      {/* Dark skybox sphere for immersion - ONLY when no background image */}
-      {!backgroundImageUrl && (
-        <mesh>
-          <sphereGeometry args={[50, 32, 32]} />
-          <meshBasicMaterial color={0x0a0a15} side={THREE.BackSide} />
-        </mesh>
-      )}
-
-      {/* Floor */}
+      {/* Floor ONLY - testing */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
         <planeGeometry args={[100, 100]} />
         <meshBasicMaterial color={0x1a1a2e} />
       </mesh>
 
-      {/* 360° BACKGROUND - WebXR Layer (compositor-rendered, saves ~8MB GPU memory) */}
-      {backgroundImageUrl && supportsXRLayers() && (
-        <BackgroundXRLayer
-          imageUrl={backgroundImageUrl}
-          onLayerCreated={(layer) => {
-            console.log('[VR SCENE] Background layer ready');
-            setLayers((prev) => ({ ...prev, background: layer }));
-          }}
-        />
-      )}
-
-      {/* Gymnasium background fallback when XR Layers not supported */}
-      {backgroundImageUrl && !supportsXRLayers() && (
-        <Gymnasium backgroundImageUrl={backgroundImageUrl} />
-      )}
-
-      {/* Coach video panel */}
-      {showCoach && roomName && userName ? (
-        <TwilioVideoTexture
-          position={[2.5, 1.5, -3]}
-          roomName={roomName}
-          userName={userName}
-          onConnected={() => console.log('🎥 Connected to coach broadcast')}
-        />
-      ) : showCoach ? (
-        <VideoPanel
-          position={[2.5, 1.5, -3]}
-          rotation={[0, -Math.PI / 6, 0]}
-          title="Coach"
-        />
-      ) : null}
-
-      {/* Technique video */}
-      {videoEnabled && supportsXRLayers() && (
-        <VideoXRLayer
-          videoUrl="/video/latora30.mp4"
-          position={[-2.5, 1.5, -3]}
-          rotation={[0, Math.PI / 6, 0]}
-          width={1.2}
-          height={2.0}
-          onLayerCreated={(layer) => {
-            console.log('[VR SCENE] Technique video layer ready');
-            setLayers((prev) => ({ ...prev, technique: layer }));
-          }}
-        />
-      )}
-
-      {videoEnabled && !supportsXRLayers() && (
-        <VideoTextureSimple
-          position={[-2.5, 1.5, -3]}
-          rotation={[0, Math.PI / 6, 0]}
-          videoUrl="/video/latora30.mp4"
-        />
-      )}
-
-      {/* TEMPORARILY DISABLED - Webcam Mirror */}
-      {/* {showMirror && (
-        <AvatarMirror
-          position={[0, 1.6, -2]}
-          rotation={[0, 0, 0]}
-          cameraDeviceId={cameraDeviceId}
-          onXRLayerChange={(layer) => {
-            setLayers((prev) => ({ ...prev, webcam: layer }));
-          }}
-        />
-      )} */}
+      {/* Test box to confirm rendering works */}
+      <mesh position={[0, 1.5, -2]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="red" />
+      </mesh>
     </>
   );
 }
