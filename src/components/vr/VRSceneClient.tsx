@@ -200,10 +200,23 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
       {/* VR Controller Screenshot Support - Press Y/B button or grip to take screenshot */}
       {onScreenshot && <VRControllerScreenshot onScreenshot={onScreenshot} />}
 
-      {/* MINIMAL lighting - no shadows, no complex features */}
+      {/* Good lighting for VR */}
       <ambientLight intensity={1.0} />
+      <directionalLight position={[0, 10, 0]} intensity={1.0} />
 
-      {/* Simple test cubes - NO emissive, just basic color */}
+      {/* Dark skybox sphere for immersion */}
+      <mesh>
+        <sphereGeometry args={[50, 32, 32]} />
+        <meshBasicMaterial color={0x0a0a15} side={THREE.BackSide} />
+      </mesh>
+
+      {/* Floor */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+        <planeGeometry args={[100, 100]} />
+        <meshBasicMaterial color={0x1a1a2e} />
+      </mesh>
+
+      {/* Bright reference cubes - easily visible */}
       <mesh position={[0, 1.6, -2]}>
         <boxGeometry args={[0.5, 0.5, 0.5]} />
         <meshBasicMaterial color={0xff0000} />
@@ -275,14 +288,14 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         />
       )} */}
 
-      {/* TEMPORARILY DISABLED - BlazePose Mirror */}
-      {/* {showMirror && (
+      {/* BlazePose Mirror - RE-ENABLED */}
+      {showMirror && (
         <AvatarMirror
           position={[0, 1.6, -2]}
           rotation={[0, 0, 0]}
           cameraDeviceId={cameraDeviceId}
         />
-      )} */}
+      )}
     </>
   );
 }
