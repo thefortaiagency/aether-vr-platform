@@ -230,6 +230,9 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
     }
   }, [session, layers.background, layers.technique, layers.webcam]);
 
+  // DEBUG: Check conditional before render
+  console.log('[VR SCENE CONTENT] 🔍 About to render. backgroundImageUrl:', backgroundImageUrl, 'truthy?', !!backgroundImageUrl);
+
   return (
     <>
       {/* Good lighting for VR */}
@@ -243,9 +246,16 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
       </mesh>
 
       {/* 360° Background - Add it back */}
-      {backgroundImageUrl && (
-        <Gymnasium backgroundImageUrl={backgroundImageUrl} />
-      )}
+      {(() => {
+        console.log('[VR SCENE CONTENT] 🎯 Inside conditional render. backgroundImageUrl:', backgroundImageUrl);
+        if (backgroundImageUrl) {
+          console.log('[VR SCENE CONTENT] ✅ Rendering Gymnasium component NOW!');
+          return <Gymnasium backgroundImageUrl={backgroundImageUrl} />;
+        } else {
+          console.log('[VR SCENE CONTENT] ❌ No backgroundImageUrl - skipping Gymnasium');
+          return null;
+        }
+      })()}
 
       {/* Test box to confirm rendering works */}
       <mesh position={[0, 1.5, -2]}>
