@@ -39,85 +39,81 @@ const xrStore = createXRStore({
   foveation: 0, // Disable foveated rendering for better quality
 });
 
-// Gymnasium Environment - Curved background screen for VR (not full 360°)
+// Gymnasium Environment - 360° background sphere
 function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
   const [texture, setTexture] = React.useState<THREE.Texture | null>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [isReady, setIsReady] = React.useState(false);
+  const textureRef = React.useRef<THREE.Texture | null>(null);
 
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!backgroundImageUrl) return;
 
-    console.log('[GYMNASIUM] Background URL:', backgroundImageUrl);
-
-    if (!backgroundImageUrl) {
-      console.log('[GYMNASIUM] No background URL provided');
-      setTexture(null);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
     let mounted = true;
-    console.log('[GYMNASIUM] Loading texture from:', backgroundImageUrl);
-    const loader = new THREE.TextureLoader();
+    console.log('[GYMNASIUM] 🎨 Loading background:', backgroundImageUrl);
 
-    let loadedTexture: THREE.Texture | null = null;
+    const loader = new THREE.TextureLoader();
 
     loader.load(
       backgroundImageUrl,
-      // onLoad - Success callback
+      // Success
       (tex) => {
         if (!mounted) {
-          console.log('[GYMNASIUM] ⚠️ Component unmounted before texture loaded');
+          console.log('[GYMNASIUM] ⚠️ Unmounted, disposing texture');
           tex.dispose();
           return;
         }
 
-        console.log('[GYMNASIUM] ✅ Texture loaded successfully');
-        console.log('[GYMNASIUM] Image dimensions:', tex.image.width, 'x', tex.image.height);
+        try {
+          console.log('[GYMNASIUM] ✅ Texture loaded:', tex.image.width, 'x', tex.image.height);
 
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.minFilter = THREE.LinearFilter;
-        tex.magFilter = THREE.LinearFilter;
-        tex.needsUpdate = true;
+          tex.colorSpace = THREE.SRGBColorSpace;
+          tex.minFilter = THREE.LinearFilter;
+          tex.magFilter = THREE.LinearFilter;
+          tex.needsUpdate = true;
 
-        loadedTexture = tex;
-        setTexture(tex);
-        setIsLoading(false);
-        console.log('[GYMNASIUM] ✅ Texture state updated, should render background');
+          textureRef.current = tex;
+          setTexture(tex);
+
+          // Small delay to ensure texture is fully ready
+          setTimeout(() => {
+            if (mounted) {
+              setIsReady(true);
+              console.log('[GYMNASIUM] ✅ Ready to render');
+            }
+          }, 100);
+
+        } catch (error) {
+          console.error('[GYMNASIUM] ❌ Error setting up texture:', error);
+        }
       },
-      // onProgress - Loading callback
-      (xhr) => {
-        if (!mounted) return;
-        const percentComplete = xhr.total > 0 ? (xhr.loaded / xhr.total) * 100 : 0;
-        console.log('[GYMNASIUM] Loading progress:', percentComplete.toFixed(0) + '%');
-      },
-      // onError - Error callback
+      // Progress
+      undefined,
+      // Error
       (error) => {
         if (!mounted) return;
-        console.error('[GYMNASIUM] ❌ Failed to load texture:', error);
-        console.error('[GYMNASIUM] ❌ URL was:', backgroundImageUrl);
-        setIsLoading(false);
+        console.error('[GYMNASIUM] ❌ Failed to load:', error);
       }
     );
 
     return () => {
       mounted = false;
-      console.log('[GYMNASIUM] Cleanup - disposing texture');
-      if (loadedTexture) {
-        loadedTexture.dispose();
+      if (textureRef.current) {
+        textureRef.current.dispose();
+        textureRef.current = null;
       }
     };
   }, [backgroundImageUrl]);
 
-  // Don't render anything while loading or if no texture
-  if (isLoading || !texture) {
+  // Absolutely do not render until ready
+  if (!isReady || !texture) {
+    console.log('[GYMNASIUM] Not ready yet - isReady:', isReady, 'texture:', !!texture);
     return null;
   }
 
-  return (
-    <>
-      {/* 360° Background sphere with texture */}
+  console.log('[GYMNASIUM] 🎬 Rendering background sphere');
+
+  try {
+    return (
       <mesh>
         <sphereGeometry args={[50, 32, 32]} />
         <meshBasicMaterial
@@ -127,14 +123,11 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
           toneMapped={false}
         />
       </mesh>
-
-      {/* Simple floor - no shadows */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-        <planeGeometry args={[100, 100]} />
-        <meshBasicMaterial color={0x0a0a15} />
-      </mesh>
-    </>
-  );
+    );
+  } catch (error) {
+    console.error('[GYMNASIUM] ❌ Render error:', error);
+    return null;
+  }
 }
 
 // Draggable 3D Video Panel for VR
@@ -233,11 +226,16 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
       <ambientLight intensity={1.0} />
       <directionalLight position={[0, 10, 0]} intensity={1.0} />
 
-      {/* Floor ONLY - testing */}
+      {/* Floor */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
         <planeGeometry args={[100, 100]} />
         <meshBasicMaterial color={0x1a1a2e} />
       </mesh>
+
+      {/* 360° Background - Add it back */}
+      {backgroundImageUrl && (
+        <Gymnasium backgroundImageUrl={backgroundImageUrl} />
+      )}
 
       {/* Test box to confirm rendering works */}
       <mesh position={[0, 1.5, -2]}>
