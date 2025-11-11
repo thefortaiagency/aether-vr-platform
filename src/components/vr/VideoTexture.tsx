@@ -282,8 +282,11 @@ export function VideoTexture({ position: initialPosition, rotation, videoUrl, ti
 
   // Don't render anything until video texture is ready
   if (!videoTexture || !isLoaded) {
+    console.log('[VideoTexture] Skipping render - texture not ready. Loaded:', isLoaded, 'Texture:', !!videoTexture);
     return null;
   }
+
+  console.log('[VideoTexture] Rendering with texture ready');
 
   return (
     <group position={position} rotation={rotation3D} scale={[scale, scale, 1]}>

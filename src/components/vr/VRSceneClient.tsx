@@ -6,7 +6,7 @@ import { XR, createXRStore, useXR } from '@react-three/xr';
 import * as THREE from 'three';
 import { TwilioVideoTexture } from './TwilioVideoTexture';
 // import { TwilioVideoLayer } from './TwilioVideoLayer'; // For VR headset testing
-import { VideoTexture } from './VideoTexture';
+import { VideoTextureSimple } from './VideoTextureSimple';
 import { VRControllerScreenshot } from './VRControllerScreenshot';
 import { AvatarMirror } from './AvatarMirror';
 import { WebcamXRLayer } from './WebcamXRLayer';
@@ -298,11 +298,10 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
       )}
 
       {videoEnabled && !supportsXRLayers() && (
-        <VideoTexture
+        <VideoTextureSimple
           position={[-2.5, 1.5, -3]}
           rotation={[0, Math.PI / 6, 0]}
           videoUrl="/video/latora30.mp4"
-          title="Wrestling Technique"
         />
       )}
 
