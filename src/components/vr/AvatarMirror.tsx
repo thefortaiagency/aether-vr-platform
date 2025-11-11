@@ -24,9 +24,6 @@ export function AvatarMirror({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Start with null - will be initialized client-side only
-  const textureRef = useRef<THREE.CanvasTexture | null>(null);
-
   const detectorRef = useRef<poseDetection.PoseDetector | null>(null);
   const frameCountRef = useRef(0);
   const poseIntervalRef = useRef(4); // Run pose detection every 4 frames (22.5 FPS) - reduced for Quest 2 GPU
@@ -35,7 +32,9 @@ export function AvatarMirror({
   // Store as arrays (tuples) for React Three Fiber - NOT Vector3 objects
   const mirrorPosition = position;
   const mirrorScale: [number, number, number] = [2.5, 3, 1]; // MUCH LARGER for VR visibility (2.5m wide x 3m tall)
-  const [textureReady, setTextureReady] = useState(false);
+
+  // CRITICAL: Store texture in STATE, not ref, so R3F can properly track it and reinitialize material
+  const [canvasTexture, setCanvasTexture] = useState<THREE.CanvasTexture | null>(null);
 
   // Initialize webcam and pose detector (client-side only)
   useEffect(() => {
@@ -90,23 +89,22 @@ export function AvatarMirror({
           ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
 
-        // Replace placeholder with real texture
+        // Start video playback
+        await video.play();
+        console.log('[AvatarMirror] ✅ Webcam started and playing');
+
+        // Create CanvasTexture AFTER video is playing
         const texture = new THREE.CanvasTexture(canvas);
         texture.minFilter = THREE.LinearFilter;
         texture.magFilter = THREE.LinearFilter;
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.needsUpdate = true; // CRITICAL: Force initial texture upload
-        textureRef.current = texture;
 
         console.log('[AvatarMirror] CanvasTexture created');
 
-        // Start video playback
-        await video.play();
-        console.log('[AvatarMirror] ✅ Webcam started and playing');
-
-        // Texture is ready - show the mesh
-        setTextureReady(true);
-        console.log('[AvatarMirror] ✅ Texture ready, mesh will render');
+        // CRITICAL: Set texture in STATE so R3F can properly initialize material uniforms
+        setCanvasTexture(texture);
+        console.log('[AvatarMirror] ✅ Texture set in state, material will reinitialize');
 
         // Initialize TensorFlow backend with WebGPU fallback
         console.log('[AvatarMirror] Initializing TensorFlow backend...');
@@ -170,9 +168,9 @@ export function AvatarMirror({
         detectorRef.current.dispose();
       }
       // Dispose texture and canvas to prevent memory leaks
-      if (textureRef.current) {
-        textureRef.current.dispose();
-        textureRef.current = null;
+      if (canvasTexture) {
+        canvasTexture.dispose();
+        setCanvasTexture(null);
       }
       if (canvasRef.current) {
         canvasRef.current.width = 1;
@@ -180,25 +178,24 @@ export function AvatarMirror({
         canvasRef.current = null;
       }
     };
-  }, [cameraDeviceId]); // Re-initialize when camera changes
+  }, [cameraDeviceId, canvasTexture]); // Re-initialize when camera changes
 
   // Render loop - throttled pose detection for VR performance
   useFrame(async () => {
     try {
-      if (!canvasRef.current || !videoRef.current || !textureRef.current || !detectorRef.current) {
+      if (!canvasRef.current || !videoRef.current || !canvasTexture || !detectorRef.current) {
         return;
       }
 
       const canvas = canvasRef.current;
       const video = videoRef.current;
-      const texture = textureRef.current;
       const ctx = canvas.getContext('2d');
 
       // CRITICAL: Ensure video is actually playing and texture is ready
-      if (!ctx || video.readyState < 2 || !textureReady) return;
+      if (!ctx || video.readyState < 2) return;
 
       // CRITICAL: Verify texture is properly initialized
-      if (!texture.image || texture.image !== canvas) {
+      if (!canvasTexture.image || canvasTexture.image !== canvas) {
         console.warn('[AvatarMirror] Texture not properly initialized, skipping frame');
         return;
       }
@@ -238,8 +235,8 @@ export function AvatarMirror({
       }
 
       // Update texture - CRITICAL: Only if texture is properly initialized
-      if (texture && texture.image === canvas) {
-        texture.needsUpdate = true;
+      if (canvasTexture && canvasTexture.image === canvas) {
+        canvasTexture.needsUpdate = true;
       }
     } catch (error) {
       // Catch any errors in the render loop to prevent crashes
@@ -248,7 +245,7 @@ export function AvatarMirror({
   });
 
   // Don't render anything until texture is ready
-  if (!textureReady || !textureRef.current) {
+  if (!canvasTexture) {
     return null;
   }
 
@@ -258,7 +255,7 @@ export function AvatarMirror({
       <mesh ref={meshRef} scale={mirrorScale}>
         <planeGeometry args={[1, 1]} />
         <meshBasicMaterial
-          map={textureRef.current}
+          map={canvasTexture}
           side={THREE.DoubleSide}
           toneMapped={false}
         />
