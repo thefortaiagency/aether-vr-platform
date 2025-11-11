@@ -192,6 +192,16 @@ function VideoPanel({ position: initialPosition, rotation, title }: { position: 
 
 // Main VR Scene Content
 function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirror = true, roomName, userName, onScreenshot, cameraDeviceId }: VRSceneProps) {
+  // DEBUG: Log props on every render
+  console.log('[VR SCENE CONTENT] 🎬 Rendering with props:', {
+    backgroundImageUrl,
+    showCoach,
+    videoEnabled,
+    showMirror,
+    roomName,
+    userName
+  });
+
   const [layers, setLayers] = React.useState<{
     background: XREquirectLayer | null;
     technique: XRQuadLayer | null;
