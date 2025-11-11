@@ -23,7 +23,8 @@ export function AvatarMirror({
 }: AvatarMirrorProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const materialRef = useRef<THREE.MeshBasicMaterial | null>(null);
-
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasContextRef = useRef<CanvasRenderingContext2D | null>(null);
   const detectorRef = useRef<poseDetection.PoseDetector | null>(null);
 
   // XR session tracking for video playback management
@@ -34,7 +35,7 @@ export function AvatarMirror({
   const mirrorScale: [number, number, number] = [2.5, 3, 1]; // MUCH LARGER for VR visibility (2.5m wide x 3m tall)
 
   // Store TEXTURE in ref - let R3F handle material cloning for XR stereo
-  const [videoTexture, setVideoTexture] = useState<THREE.VideoTexture | null>(null);
+  const [mirrorTexture, setMirrorTexture] = useState<THREE.CanvasTexture | null>(null);
 
   // Initialize webcam and pose detector (client-side only)
   useEffect(() => {
@@ -102,18 +103,36 @@ export function AvatarMirror({
         });
         console.log('[AvatarMirror] ✅ Video has frame data ready');
 
-        // Create VideoTexture - R3F will handle material cloning for XR stereo
-        const texture = new THREE.VideoTexture(video);
+        // Create draw canvas that mirrors the video stream for XR compatibility
+        const canvas = document.createElement('canvas');
+        const width = video.videoWidth || videoConstraints.width || 320;
+        const height = video.videoHeight || videoConstraints.height || 240;
+        canvas.width = width;
+        canvas.height = height;
+
+        const context = canvas.getContext('2d');
+        if (!context) {
+          throw new Error('Failed to acquire 2D context for mirror canvas');
+        }
+
+        context.fillStyle = '#000000';
+        context.fillRect(0, 0, width, height);
+
+        canvasRef.current = canvas;
+        canvasContextRef.current = context;
+
+        // Use CanvasTexture instead of VideoTexture to avoid XR clone issues
+        const texture = new THREE.CanvasTexture(canvas);
         texture.minFilter = THREE.LinearFilter;
         texture.magFilter = THREE.LinearFilter;
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.generateMipmaps = false;
 
-        console.log('[AvatarMirror] VideoTexture created');
+        console.log('[AvatarMirror] CanvasTexture created from mirror canvas');
 
         // Store texture in state - R3F will create material declaratively
-        setVideoTexture(texture);
-        console.log('[AvatarMirror] ✅ VideoTexture ready');
+        setMirrorTexture(texture);
+        console.log('[AvatarMirror] ✅ CanvasTexture ready for mirror');
 
         // Initialize TensorFlow backend with WebGPU fallback
         console.log('[AvatarMirror] Initializing TensorFlow backend...');
@@ -176,6 +195,8 @@ export function AvatarMirror({
       if (videoRef.current && videoRef.current.parentNode) {
         videoRef.current.parentNode.removeChild(videoRef.current);
       }
+      canvasRef.current = null;
+      canvasContextRef.current = null;
       if (detectorRef.current) {
         detectorRef.current.dispose();
       }
@@ -185,12 +206,12 @@ export function AvatarMirror({
   // Cleanup texture on unmount
   useEffect(() => {
     return () => {
-      if (videoTexture) {
+      if (mirrorTexture) {
         console.log('[AvatarMirror] Disposing texture on unmount');
-        videoTexture.dispose();
+        mirrorTexture.dispose();
       }
     };
-  }, [videoTexture]);
+  }, [mirrorTexture]);
 
   // Force video playback when entering XR mode (harden video resume)
   useEffect(() => {
@@ -225,19 +246,45 @@ export function AvatarMirror({
 
   // CRITICAL: VideoTexture requires manual needsUpdate every frame in VR
   // Research: https://discourse.threejs.org/t/video-texture-no-longer-updating-after-entering-webxr-mode/43068
-  const textureRef = useRef<THREE.VideoTexture | null>(null);
+  const textureRef = useRef<THREE.CanvasTexture | null>(null);
 
   useEffect(() => {
-    if (videoTexture) {
-      textureRef.current = videoTexture;
+    if (mirrorTexture) {
+      textureRef.current = mirrorTexture;
     }
-  }, [videoTexture]);
+  }, [mirrorTexture]);
 
   useFrame(() => {
     const texture = textureRef.current;
     const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvasContextRef.current;
 
     if (texture && video && video.readyState >= video.HAVE_CURRENT_DATA) {
+      if (canvas && context) {
+        const targetWidth = video.videoWidth || canvas.width;
+        const targetHeight = video.videoHeight || canvas.height;
+
+        if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+          console.log('[AvatarMirror] Resized mirror canvas to match video', {
+            width: targetWidth,
+            height: targetHeight
+          });
+          const refreshedContext = canvas.getContext('2d');
+          if (refreshedContext) {
+            canvasContextRef.current = refreshedContext;
+          }
+        }
+
+        // Draw current video frame into the mirror canvas
+        const drawContext = canvasContextRef.current;
+        if (drawContext) {
+          drawContext.drawImage(video, 0, 0, canvas.width, canvas.height);
+        }
+      }
+
       texture.needsUpdate = true; // CRITICAL for VR mode
 
       if (materialRef.current && materialRef.current.map !== texture) {
@@ -261,7 +308,7 @@ export function AvatarMirror({
   });
 
   // Don't render anything until texture is ready
-  if (!videoTexture) {
+  if (!mirrorTexture) {
     return null;
   }
 
@@ -286,7 +333,7 @@ export function AvatarMirror({
         <planeGeometry args={[1, 1]} />
         <meshBasicMaterial
           ref={materialRef}
-          map={videoTexture}
+          map={mirrorTexture}
           toneMapped={false}
           side={THREE.DoubleSide}
         />
