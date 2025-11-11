@@ -201,6 +201,14 @@ export function AvatarMirror({
 
     if (texture && video && video.readyState >= video.HAVE_CURRENT_DATA) {
       texture.needsUpdate = true; // CRITICAL for VR mode
+
+      // Debug: Verify material and texture in VR mode
+      if (meshRef.current && meshRef.current.material) {
+        const mat = meshRef.current.material as THREE.MeshBasicMaterial;
+        if (!mat.map) {
+          console.warn('[AvatarMirror] Material has no texture map in VR!');
+        }
+      }
     }
   });
 
@@ -225,10 +233,10 @@ export function AvatarMirror({
         <meshBasicMaterial color={0x0000ff} />
       </mesh>
 
-      {/* Video mirror plane - TEST with solid magenta if material fails */}
+      {/* Video mirror plane - Using VideoTexture material */}
       <mesh ref={meshRef} scale={mirrorScale}>
         <planeGeometry args={[1, 1]} />
-        <meshBasicMaterial color={0xff00ff} side={THREE.DoubleSide} />
+        <primitive object={mirrorMaterial} attach="material" />
       </mesh>
     </group>
   );
