@@ -169,9 +169,10 @@ function VRTraining() {
   };
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full" style={{ background: 'red' }}>
+      {/* TEST: Red background to verify container is visible */}
       {/* Full-screen VR Scene - background is rendered in 3D, not CSS */}
-      <div ref={sceneContainerRef} className="absolute inset-0">
+      <div ref={sceneContainerRef} className="absolute inset-0" style={{ background: 'green' }}>
         <VRScene
           activeExercise="stance"
           showCoach={showCoach}

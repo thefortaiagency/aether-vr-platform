@@ -293,7 +293,7 @@ export default function VRSceneClient(props: VRSceneProps) {
   }, [onVRStart, onVREnd]);
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full" style={{ width: '100%', height: '100%', position: 'relative' }}>
       <Canvas
         shadows
         camera={{ position: [0, 1.6, 0.1], fov: 75, near: 0.01, far: 1000 }}
@@ -302,9 +302,16 @@ export default function VRSceneClient(props: VRSceneProps) {
           alpha: false,
           powerPreference: 'high-performance',
         }}
-        style={{ background: '#1a1a2e' }}
+        style={{
+          background: '#1a1a2e',
+          width: '100%',
+          height: '100%',
+          display: 'block'
+        }}
         onCreated={(state) => {
           console.log('✅ Canvas created, WebGL ready');
+          console.log('📐 Canvas size:', state.gl.domElement.width, 'x', state.gl.domElement.height);
+          console.log('📐 Viewport:', state.viewport.width, 'x', state.viewport.height);
         }}
       >
         {/* Wrap scene content with XR component and pass the store */}
