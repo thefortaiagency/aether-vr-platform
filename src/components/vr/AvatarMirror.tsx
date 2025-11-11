@@ -21,20 +21,15 @@ export function AvatarMirror({
   cameraDeviceId
 }: AvatarMirrorProps) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const detectorRef = useRef<poseDetection.PoseDetector | null>(null);
-  const frameCountRef = useRef(0);
-  const poseIntervalRef = useRef(4); // Run pose detection every 4 frames (22.5 FPS) - reduced for Quest 2 GPU
-  const lastPoseRef = useRef<poseDetection.Keypoint[] | null>(null);
 
   // Store as arrays (tuples) for React Three Fiber - NOT Vector3 objects
   const mirrorPosition = position;
   const mirrorScale: [number, number, number] = [2.5, 3, 1]; // MUCH LARGER for VR visibility (2.5m wide x 3m tall)
 
-  // CRITICAL: Store both texture AND material in STATE for manual control
-  const [canvasTexture, setCanvasTexture] = useState<THREE.CanvasTexture | null>(null);
+  // Store material in STATE for manual control
   const [mirrorMaterial, setMirrorMaterial] = useState<THREE.MeshBasicMaterial | null>(null);
 
   // Initialize webcam and pose detector (client-side only)
@@ -94,48 +89,26 @@ export function AvatarMirror({
         });
         console.log('[AvatarMirror] ✅ Video has frame data ready');
 
-        // Create canvas for rendering - match lower resolution
-        const canvas = document.createElement('canvas');
-        canvas.width = 320;
-        canvas.height = 240;
-        canvasRef.current = canvas;
-
-        // Draw ACTUAL video frame to canvas before creating texture
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.save();
-          ctx.scale(-1, 1);
-          ctx.translate(-canvas.width, 0);
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          ctx.restore();
-        }
-        console.log('[AvatarMirror] ✅ First video frame drawn to canvas');
-
-        // Create CanvasTexture with REAL video data
-        const texture = new THREE.CanvasTexture(canvas);
+        // TEST: Try VideoTexture instead of CanvasTexture
+        const texture = new THREE.VideoTexture(video);
         texture.minFilter = THREE.LinearFilter;
         texture.magFilter = THREE.LinearFilter;
         texture.colorSpace = THREE.SRGBColorSpace;
-        texture.needsUpdate = true;
 
-        console.log('[AvatarMirror] CanvasTexture created with video frame');
+        console.log('[AvatarMirror] VideoTexture created (NO skeleton overlay for now)');
 
-        // Wait one more frame to ensure texture is uploaded to GPU
-        await new Promise(resolve => requestAnimationFrame(resolve));
-
-        // CRITICAL: Create material MANUALLY with fully initialized texture
+        // Create material with VideoTexture
         const material = new THREE.MeshBasicMaterial({
           map: texture,
           side: THREE.DoubleSide,
           toneMapped: false,
         });
 
-        console.log('[AvatarMirror] Material created manually with texture');
+        console.log('[AvatarMirror] Material created with VideoTexture');
 
-        // NOW set both texture AND material in state
-        setCanvasTexture(texture);
+        // Set material in state (texture updates automatically with video)
         setMirrorMaterial(material);
-        console.log('[AvatarMirror] ✅ Texture and material ready');
+        console.log('[AvatarMirror] ✅ VideoTexture material ready');
 
         // Initialize TensorFlow backend with WebGPU fallback
         console.log('[AvatarMirror] Initializing TensorFlow backend...');
@@ -198,95 +171,24 @@ export function AvatarMirror({
       if (detectorRef.current) {
         detectorRef.current.dispose();
       }
-      // Cleanup will be handled by the next effect run or unmount
-      if (canvasRef.current) {
-        canvasRef.current.width = 1;
-        canvasRef.current.height = 1;
-        canvasRef.current = null;
-      }
     };
-  }, [cameraDeviceId]); // Re-initialize when camera changes (NOT canvasTexture - that would cause loop)
+  }, [cameraDeviceId]); // Re-initialize when camera changes
 
-  // Cleanup texture and material on unmount
+  // Cleanup material on unmount
   useEffect(() => {
     return () => {
-      if (canvasTexture) {
-        console.log('[AvatarMirror] Disposing texture on unmount');
-        canvasTexture.dispose();
-      }
       if (mirrorMaterial) {
         console.log('[AvatarMirror] Disposing material on unmount');
         mirrorMaterial.dispose();
       }
     };
-  }, [canvasTexture, mirrorMaterial]);
+  }, [mirrorMaterial]);
 
-  // Render loop - throttled pose detection for VR performance
-  useFrame(async () => {
-    try {
-      if (!canvasRef.current || !videoRef.current || !canvasTexture || !detectorRef.current) {
-        return;
-      }
+  // VideoTexture updates automatically - no manual render loop needed for now
+  // TODO: Re-add pose detection and skeleton overlay once VideoTexture works
 
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const ctx = canvas.getContext('2d');
-
-      // CRITICAL: Ensure video is actually playing and texture is ready
-      if (!ctx || video.readyState < 2) return;
-
-      // CRITICAL: Verify texture is properly initialized
-      if (!canvasTexture.image || canvasTexture.image !== canvas) {
-        console.warn('[AvatarMirror] Texture not properly initialized, skipping frame');
-        return;
-      }
-
-      // Draw video frame EVERY frame (90+ FPS in VR)
-      // Mirror for WebXR (CSS transforms don't work in WebGL textures)
-      ctx.save();
-      ctx.scale(-1, 1);
-      ctx.translate(-canvas.width, 0); // CRITICAL: translate after scale for WebXR
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      ctx.restore();
-
-      // Pose detection EVERY 4th frame (22.5 FPS) - reduced for Quest 2 GPU memory
-      frameCountRef.current++;
-      if (frameCountRef.current % poseIntervalRef.current === 0) {
-        try {
-          // Detect pose
-          const poses = await detectorRef.current.estimatePoses(video);
-
-          // Defensive checks for pose detection results
-          if (poses && Array.isArray(poses) && poses.length > 0) {
-            const pose = poses[0];
-            // Only cache if keypoints exist and are valid
-            if (pose && pose.keypoints && Array.isArray(pose.keypoints) && pose.keypoints.length > 0) {
-              lastPoseRef.current = pose.keypoints;
-            }
-          }
-        } catch (error) {
-          // Silently continue if detection fails
-          console.warn('[AvatarMirror] Pose detection error:', error);
-        }
-      }
-
-      // Draw skeleton using latest detected pose (even on non-detection frames)
-      if (lastPoseRef.current && Array.isArray(lastPoseRef.current) && lastPoseRef.current.length > 0) {
-        drawSkeleton(ctx, lastPoseRef.current, canvas.width, canvas.height);
-      }
-
-      // Update texture - CRITICAL: Only if texture is properly initialized
-      if (canvasTexture && canvasTexture.image === canvas) {
-        canvasTexture.needsUpdate = true;
-      }
-    } catch (error) {
-      // Catch any errors in the render loop to prevent crashes
-      console.warn('[AvatarMirror] Render loop error:', error);
-    }
-  });
-
-  // Don't render anything until BOTH texture AND material are ready
-  if (!canvasTexture || !mirrorMaterial) {
+  // Don't render anything until material is ready
+  if (!mirrorMaterial) {
     return null;
   }
 
