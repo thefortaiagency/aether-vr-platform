@@ -194,41 +194,9 @@ export function AvatarMirror({
 
   return (
     <group position={mirrorPosition} rotation={rotation}>
-      {/* Main mirror surface with MANUALLY created material */}
+      {/* ABSOLUTE MINIMUM TEST - ONLY the video plane, nothing else */}
       <mesh ref={meshRef} scale={mirrorScale} material={mirrorMaterial}>
         <planeGeometry args={[1, 1]} />
-      </mesh>
-
-      {/* BRIGHT NEON FRAME - Unmissable in VR */}
-      <lineSegments scale={mirrorScale}>
-        <edgesGeometry attach="geometry" args={[new THREE.PlaneGeometry(1, 1)]} />
-        <lineBasicMaterial
-          attach="material"
-          color="#00FF00" // BRIGHT NEON GREEN
-          linewidth={5}
-        />
-      </lineSegments>
-
-      {/* LARGE Corner spheres for visibility */}
-      {[
-        [-0.5, 0.5, 0.01],
-        [0.5, 0.5, 0.01],
-        [-0.5, -0.5, 0.01],
-        [0.5, -0.5, 0.01],
-      ].map((pos, i) => (
-        <mesh
-          key={i}
-          position={[pos[0] * mirrorScale[0], pos[1] * mirrorScale[1], pos[2]]}
-        >
-          <sphereGeometry args={[0.15]} /> {/* 3x larger spheres */}
-          <meshBasicMaterial color="#FF00FF" emissive="#FF00FF" emissiveIntensity={2} /> {/* BRIGHT MAGENTA */}
-        </mesh>
-      ))}
-
-      {/* BRIGHT Label */}
-      <mesh position={[0, mirrorScale[1] * 0.6, 0.02]}>
-        <planeGeometry args={[mirrorScale[0] * 0.8, 0.3]} />
-        <meshBasicMaterial color="#00FF00" emissive="#00FF00" emissiveIntensity={1} />
       </mesh>
     </group>
   );
