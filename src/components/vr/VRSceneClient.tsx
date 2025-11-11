@@ -93,33 +93,17 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
 
   return (
     <>
-      {/* Visible floor for VR spatial reference */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[100, 100]} />
-        <meshBasicMaterial
-          color="#1a1a2e"
-          side={THREE.DoubleSide}
-        />
+      {/* MINIMAL TEST - Only dark skybox, no texture */}
+      <mesh>
+        <sphereGeometry args={[50, 32, 32]} />
+        <meshBasicMaterial color={0x1a1a2e} side={THREE.BackSide} />
       </mesh>
 
-      {/* 360° Skybox sphere - with texture when loaded */}
-      {texture && texture.image && (
-        <mesh>
-          <sphereGeometry args={[50, 64, 64]} />
-          <meshBasicMaterial
-            map={texture}
-            side={THREE.BackSide}
-          />
-        </mesh>
-      )}
-
-      {/* Fallback: Dark skybox sphere - simple and reliable */}
-      {(!texture || !texture.image) && (
-        <mesh>
-          <sphereGeometry args={[50, 32, 32]} />
-          <meshBasicMaterial color={0x0a0a15} side={THREE.BackSide} />
-        </mesh>
-      )}
+      {/* Simple floor - no shadows */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+        <planeGeometry args={[100, 100]} />
+        <meshBasicMaterial color={0x0a0a15} />
+      </mesh>
     </>
   );
 }
@@ -266,9 +250,8 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         <Gymnasium backgroundImageUrl={backgroundImageUrl} />
       )}
 
-      {/* Coach video panel - positioned to the right */}
-      {/* KEEP as Three.js texture for now (Twilio integration) */}
-      {showCoach && roomName && userName ? (
+      {/* TEMPORARILY DISABLED - Coach video panel */}
+      {/* {showCoach && roomName && userName ? (
         <TwilioVideoTexture
           position={[2.5, 1.5, -3]}
           roomName={roomName}
@@ -281,10 +264,10 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
           rotation={[0, -Math.PI / 6, 0]}
           title="Coach"
         />
-      ) : null}
+      ) : null} */}
 
-      {/* TECHNIQUE VIDEO - WebXR Layer (compositor-rendered, saves ~4MB GPU memory) */}
-      {videoEnabled && supportsXRLayers() && (
+      {/* TEMPORARILY DISABLED - Technique video */}
+      {/* {videoEnabled && supportsXRLayers() && (
         <VideoXRLayer
           videoUrl="/video/latora30.mp4"
           position={[-2.5, 1.5, -3]}
@@ -298,7 +281,6 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         />
       )}
 
-      {/* Fallback: Three.js technique video if Layers API not supported */}
       {videoEnabled && !supportsXRLayers() && (
         <VideoTexture
           position={[-2.5, 1.5, -3]}
@@ -306,16 +288,16 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
           videoUrl="/video/latora30.mp4"
           title="Wrestling Technique"
         />
-      )}
+      )} */}
 
-      {/* BlazePose Mirror - Always show when enabled */}
-      {showMirror && (
+      {/* TEMPORARILY DISABLED - BlazePose Mirror */}
+      {/* {showMirror && (
         <AvatarMirror
           position={[0, 1.6, -2]}
           rotation={[0, 0, 0]}
           cameraDeviceId={cameraDeviceId}
         />
-      )}
+      )} */}
     </>
   );
 }
