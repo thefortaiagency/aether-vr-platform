@@ -33,8 +33,8 @@ export function AvatarMirror({
   const mirrorPosition = position;
   const mirrorScale: [number, number, number] = [2.5, 3, 1]; // MUCH LARGER for VR visibility (2.5m wide x 3m tall)
 
-  // Store material in STATE for manual control
-  const [mirrorMaterial, setMirrorMaterial] = useState<THREE.MeshBasicMaterial | null>(null);
+  // Store TEXTURE in ref - let R3F handle material cloning for XR stereo
+  const [videoTexture, setVideoTexture] = useState<THREE.VideoTexture | null>(null);
 
   // Initialize webcam and pose detector (client-side only)
   useEffect(() => {
@@ -102,27 +102,18 @@ export function AvatarMirror({
         });
         console.log('[AvatarMirror] ✅ Video has frame data ready');
 
-        // TEST: Try VideoTexture instead of CanvasTexture
+        // Create VideoTexture - R3F will handle material cloning for XR stereo
         const texture = new THREE.VideoTexture(video);
         texture.minFilter = THREE.LinearFilter;
         texture.magFilter = THREE.LinearFilter;
         texture.colorSpace = THREE.SRGBColorSpace;
+        texture.generateMipmaps = false;
 
-        console.log('[AvatarMirror] VideoTexture created (NO skeleton overlay for now)');
+        console.log('[AvatarMirror] VideoTexture created');
 
-        // Create material with VideoTexture (white = no color tint)
-        const material = new THREE.MeshBasicMaterial({
-          map: texture,
-          color: 0xffffff, // White = no tint
-          side: THREE.DoubleSide,
-          toneMapped: false,
-        });
-
-        console.log('[AvatarMirror] Material created with VideoTexture + cyan fallback color');
-
-        // Set material in state (texture updates automatically with video)
-        setMirrorMaterial(material);
-        console.log('[AvatarMirror] ✅ VideoTexture material ready');
+        // Store texture in state - R3F will create material declaratively
+        setVideoTexture(texture);
+        console.log('[AvatarMirror] ✅ VideoTexture ready');
 
         // Initialize TensorFlow backend with WebGPU fallback
         console.log('[AvatarMirror] Initializing TensorFlow backend...');
@@ -191,26 +182,42 @@ export function AvatarMirror({
     };
   }, [cameraDeviceId]); // Re-initialize when camera changes
 
-  // Cleanup material on unmount
+  // Cleanup texture on unmount
   useEffect(() => {
     return () => {
-      if (mirrorMaterial) {
-        console.log('[AvatarMirror] Disposing material on unmount');
-        mirrorMaterial.dispose();
+      if (videoTexture) {
+        console.log('[AvatarMirror] Disposing texture on unmount');
+        videoTexture.dispose();
       }
     };
-  }, [mirrorMaterial]);
+  }, [videoTexture]);
 
-  // Force video playback when entering XR mode (WebKit bug workaround)
+  // Force video playback when entering XR mode (harden video resume)
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
     if (session) {
       console.log('[AvatarMirror] XR session started - forcing video playback');
-      video.play().catch((err) => {
-        console.error('[AvatarMirror] Failed to resume video in VR:', err);
+      console.log('[AvatarMirror] Video state before play:', {
+        paused: video.paused,
+        readyState: video.readyState,
+        currentTime: video.currentTime,
+        muted: video.muted
       });
+
+      // Ensure video is muted and playsinline (Quest requirement)
+      video.muted = true;
+      video.setAttribute('playsinline', 'true');
+      video.setAttribute('webkit-playsinline', 'true');
+
+      video.play()
+        .then(() => {
+          console.log('[AvatarMirror] ✅ Video playing in VR session');
+        })
+        .catch((err) => {
+          console.error('[AvatarMirror] ❌ Failed to resume video in VR:', err);
+        });
     } else {
       console.log('[AvatarMirror] XR session ended');
     }
@@ -221,10 +228,10 @@ export function AvatarMirror({
   const textureRef = useRef<THREE.VideoTexture | null>(null);
 
   useEffect(() => {
-    if (mirrorMaterial && mirrorMaterial.map) {
-      textureRef.current = mirrorMaterial.map as THREE.VideoTexture;
+    if (videoTexture) {
+      textureRef.current = videoTexture;
     }
-  }, [mirrorMaterial]);
+  }, [videoTexture]);
 
   useFrame(() => {
     const texture = textureRef.current;
@@ -233,21 +240,36 @@ export function AvatarMirror({
     if (texture && video && video.readyState >= video.HAVE_CURRENT_DATA) {
       texture.needsUpdate = true; // CRITICAL for VR mode
 
-      // In XR mode, also force material update
-      if (session && meshRef.current && meshRef.current.material) {
-        const mat = meshRef.current.material as THREE.MeshBasicMaterial;
-        if (mat.map) {
-          mat.map.needsUpdate = true;
-          mat.needsUpdate = true; // Force material shader update
-        } else {
-          console.warn('[AvatarMirror] Material has no texture map in VR!');
+      // Deep instrumentation for debugging
+      if (session && meshRef.current) {
+        const mesh = meshRef.current;
+        const mat = mesh.material as THREE.MeshBasicMaterial;
+
+        // Log detailed state (once every 60 frames to avoid spam)
+        if (Math.random() < 0.016) {
+          console.log('[AvatarMirror] VR Frame State:', {
+            textureUUID: texture.uuid,
+            textureImage: texture.image ? 'exists' : 'missing',
+            materialUUID: mat.uuid,
+            materialMap: mat.map ? mat.map.uuid : 'missing',
+            materialMapMatchesTexture: mat.map === texture,
+            videoPlaying: !video.paused,
+            videoReadyState: video.readyState
+          });
+        }
+
+        // Ensure material has correct texture reference
+        if (mat.map !== texture) {
+          console.warn('[AvatarMirror] Material texture mismatch! Reassigning...');
+          mat.map = texture;
+          mat.needsUpdate = true;
         }
       }
     }
   });
 
-  // Don't render anything until material is ready
-  if (!mirrorMaterial) {
+  // Don't render anything until texture is ready
+  if (!videoTexture) {
     return null;
   }
 
@@ -267,10 +289,14 @@ export function AvatarMirror({
         <meshBasicMaterial color={0x0000ff} />
       </mesh>
 
-      {/* Video mirror plane - Using VideoTexture material */}
+      {/* Video mirror plane - R3F handles material cloning for XR stereo */}
       <mesh ref={meshRef} scale={mirrorScale}>
         <planeGeometry args={[1, 1]} />
-        <primitive object={mirrorMaterial} attach="material" />
+        <meshBasicMaterial
+          map={videoTexture}
+          toneMapped={false}
+          side={THREE.DoubleSide}
+        />
       </mesh>
     </group>
   );
