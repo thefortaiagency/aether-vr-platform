@@ -18,7 +18,7 @@ function VRTraining() {
   const userName = urlParams.get('user') || 'Wrestler';
 
   const [showCoach, setShowCoach] = useState(true);
-  const [showTechnique, setShowTechnique] = useState(false); // OFF by default - mirror shows first
+  const [showTechnique, setShowTechnique] = useState(true); // Enable technique video by default
   const [showMirror, setShowMirror] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);

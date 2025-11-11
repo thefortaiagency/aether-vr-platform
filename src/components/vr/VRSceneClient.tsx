@@ -99,10 +99,15 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
 
   return (
     <>
-      {/* MINIMAL TEST - Only dark skybox, no texture */}
+      {/* 360° Background sphere with texture */}
       <mesh>
         <sphereGeometry args={[50, 32, 32]} />
-        <meshBasicMaterial color={0x1a1a2e} side={THREE.BackSide} />
+        <meshBasicMaterial
+          map={texture}
+          color={0xffffff}
+          side={THREE.BackSide}
+          toneMapped={false}
+        />
       </mesh>
 
       {/* Simple floor - no shadows */}
@@ -223,22 +228,6 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
         <planeGeometry args={[100, 100]} />
         <meshBasicMaterial color={0x1a1a2e} />
-      </mesh>
-
-      {/* Bright reference cubes - easily visible */}
-      <mesh position={[0, 1.6, -2]}>
-        <boxGeometry args={[0.5, 0.5, 0.5]} />
-        <meshBasicMaterial color={0xff0000} />
-      </mesh>
-
-      <mesh position={[-2, 1.6, -2]}>
-        <boxGeometry args={[0.5, 0.5, 0.5]} />
-        <meshBasicMaterial color={0x00ff00} />
-      </mesh>
-
-      <mesh position={[2, 1.6, -2]}>
-        <boxGeometry args={[0.5, 0.5, 0.5]} />
-        <meshBasicMaterial color={0x0000ff} />
       </mesh>
 
       {/* 360° BACKGROUND - WebXR Layer (compositor-rendered, saves ~8MB GPU memory) */}
