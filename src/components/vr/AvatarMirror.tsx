@@ -185,8 +185,24 @@ export function AvatarMirror({
     };
   }, [mirrorMaterial]);
 
-  // VideoTexture updates automatically - no manual render loop needed for now
-  // TODO: Re-add pose detection and skeleton overlay once VideoTexture works
+  // CRITICAL: VideoTexture requires manual needsUpdate every frame in VR
+  // Research: https://discourse.threejs.org/t/video-texture-no-longer-updating-after-entering-webxr-mode/43068
+  const textureRef = useRef<THREE.VideoTexture | null>(null);
+
+  useEffect(() => {
+    if (mirrorMaterial && mirrorMaterial.map) {
+      textureRef.current = mirrorMaterial.map as THREE.VideoTexture;
+    }
+  }, [mirrorMaterial]);
+
+  useFrame(() => {
+    const texture = textureRef.current;
+    const video = videoRef.current;
+
+    if (texture && video && video.readyState >= video.HAVE_CURRENT_DATA) {
+      texture.needsUpdate = true; // CRITICAL for VR mode
+    }
+  });
 
   // Don't render anything until material is ready
   if (!mirrorMaterial) {
