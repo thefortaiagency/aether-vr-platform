@@ -264,51 +264,38 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
 
   return (
     <>
-      {/* Bright VR lighting - like a well-lit gymnasium */}
-      <ambientLight intensity={2.5} />
-      <directionalLight position={[0, 10, 0]} intensity={2.0} />
-      <directionalLight position={[5, 5, 5]} intensity={1.5} />
-      <directionalLight position={[-5, 5, -5]} intensity={1.5} />
-      <pointLight position={[0, 3, 0]} intensity={2.0} distance={20} />
+      {/* NO LIGHTS - using only self-illuminating materials */}
 
-      {/* 360° Wrestling Room Background */}
-      {backgroundImageUrl && (
-        <Gymnasium backgroundImageUrl={backgroundImageUrl} />
-      )}
+      {/* BRIGHT TEST CUBES - You WILL see these */}
+      <mesh position={[0, 1.6, -2]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshBasicMaterial color="#FF0000" toneMapped={false} />
+      </mesh>
 
-      {/* Technique Videos in Circle Formation */}
-      {videoEnabled && techniqueVideos.map((video, index) => {
-        const x = Math.sin(video.angle) * radius;
-        const z = Math.cos(video.angle) * radius;
-        console.log(`[VIDEO ${index}] ${video.name} at [${x.toFixed(2)}, ${videoHeight}, ${-z.toFixed(2)}]`);
-        return (
-          <group key={`technique-${index}`} position={[x, videoHeight, -z]}>
-            {/* Glowing debug box - bright yellow that you can't miss */}
-            <mesh>
-              <boxGeometry args={[2, 1.5, 0.1]} />
-              <meshBasicMaterial
-                color="#FFFF00"
-                wireframe
-                transparent
-                opacity={1.0}
-              />
-            </mesh>
-            {/* Solid bright backing so it shows up */}
-            <mesh position={[0, 0, -0.05]}>
-              <planeGeometry args={[2, 1.5]} />
-              <meshBasicMaterial
-                color="#FFFF00"
-                toneMapped={false}
-              />
-            </mesh>
-            <VideoTextureSimple
-              position={[0, 0, 0]}
-              rotation={[0, -video.angle, 0]}
-              videoUrl="/video/latora30.mp4"
-            />
-          </group>
-        );
-      })}
+      <mesh position={[2, 1.6, -2]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshBasicMaterial color="#00FF00" toneMapped={false} />
+      </mesh>
+
+      <mesh position={[-2, 1.6, -2]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshBasicMaterial color="#0000FF" toneMapped={false} />
+      </mesh>
+
+      <mesh position={[0, 1.6, -4]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshBasicMaterial color="#FFFF00" toneMapped={false} />
+      </mesh>
+
+      <mesh position={[0, 2.6, -2]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshBasicMaterial color="#FF00FF" toneMapped={false} />
+      </mesh>
+
+      <mesh position={[0, 0.6, -2]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshBasicMaterial color="#00FFFF" toneMapped={false} />
+      </mesh>
 
       {/* VR Coach Chatbot - Floating above at angle */}
       <VRCoachChatbot position={[1.5, 2.2, -1.5]} />
