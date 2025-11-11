@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { TwilioVideoTexture } from './TwilioVideoTexture';
 // import { TwilioVideoLayer } from './TwilioVideoLayer'; // For VR headset testing
 import { VideoTextureSimple } from './VideoTextureSimple';
+import { VRCoachChatbot } from './VRCoachChatbot';
 import { VRControllerScreenshot } from './VRControllerScreenshot';
 import { AvatarMirror } from './AvatarMirror';
 import { WebcamXRLayer } from './WebcamXRLayer';
@@ -271,6 +272,9 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
           />
         );
       })}
+
+      {/* VR Coach Chatbot - Floating above at angle */}
+      <VRCoachChatbot position={[1.5, 2.2, -1.5]} />
     </>
   );
 }
