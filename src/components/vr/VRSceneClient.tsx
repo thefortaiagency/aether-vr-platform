@@ -93,24 +93,32 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
 
   return (
     <>
-      {/* Invisible floor for shadows only */}
+      {/* Visible floor grid for VR spatial reference */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[200, 200]} />
-        <meshStandardMaterial transparent opacity={0} />
+        <planeGeometry args={[50, 50]} />
+        <meshStandardMaterial
+          color="#1a1a2e"
+          wireframe={false}
+          opacity={0.8}
+          transparent
+        />
       </mesh>
 
-      {/* Large curved background screen - wraps 180° around user */}
+      {/* Grid lines for depth perception */}
+      <gridHelper args={[50, 50, '#444444', '#222222']} position={[0, 0.01, 0]} />
+
+      {/* Full 360° curved background - complete immersion */}
       {texture && (
         <mesh position={[0, 1.6, 0]}>
           <cylinderGeometry args={[
-            15,  // radiusTop - 15m radius
-            15,  // radiusBottom - 15m radius
-            10,  // height - 10m tall
+            20,  // radiusTop - 20m radius (larger for more immersion)
+            20,  // radiusBottom - 20m radius
+            12,  // height - 12m tall (taller to fill vertical FOV)
             64,  // radialSegments - smooth curve
             1,   // heightSegments
             true, // openEnded - open top/bottom
             0,   // thetaStart - start angle
-            Math.PI  // thetaLength - 180° wrap (half circle)
+            Math.PI * 2  // thetaLength - FULL 360° wrap
           ]} />
           <meshBasicMaterial
             map={texture}
@@ -120,12 +128,12 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
         </mesh>
       )}
 
-      {/* Fallback: Simple dark environment if no texture */}
+      {/* Fallback: Full 360° dark environment if no texture */}
       {!texture && (
         <mesh position={[0, 1.6, 0]}>
-          <cylinderGeometry args={[15, 15, 10, 64, 1, true, 0, Math.PI * 2]} />
+          <cylinderGeometry args={[20, 20, 12, 64, 1, true, 0, Math.PI * 2]} />
           <meshBasicMaterial
-            color="#1a1a2e"
+            color="#0a0a15"
             side={THREE.BackSide}
           />
         </mesh>
@@ -171,15 +179,17 @@ function VideoPanel({ position: initialPosition, rotation, title }: { position: 
         />
       </mesh>
 
-      {/* Frame */}
-      <lineSegments>
-        <edgesGeometry attach="geometry" args={[new THREE.PlaneGeometry(2, 1.2)]} />
-        <lineBasicMaterial
-          attach="material"
-          color={isDragging ? "#FFD700" : "#D4AF37"}
-          linewidth={2}
+      {/* Glowing frame for VR visibility */}
+      <mesh position={[0, 0, -0.01]}>
+        <planeGeometry args={[2.1, 1.3]} />
+        <meshBasicMaterial
+          color={isDragging ? "#FFD700" : "#00FFFF"}
+          emissive={isDragging ? "#FFD700" : "#00FFFF"}
+          emissiveIntensity={0.5}
+          transparent
+          opacity={0.3}
         />
-      </lineSegments>
+      </mesh>
 
       {/* Drag hint text */}
       {!isDragging && (
