@@ -93,22 +93,17 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
 
   return (
     <>
-      {/* Visible floor grid for VR spatial reference */}
+      {/* Visible floor for VR spatial reference */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[50, 50]} />
-        <meshStandardMaterial
+        <planeGeometry args={[100, 100]} />
+        <meshBasicMaterial
           color="#1a1a2e"
-          wireframe={false}
-          opacity={0.8}
-          transparent
+          side={THREE.DoubleSide}
         />
       </mesh>
 
-      {/* Grid lines for depth perception */}
-      <gridHelper args={[50, 50, '#444444', '#222222']} position={[0, 0.01, 0]} />
-
-      {/* Full 360° curved background - complete immersion */}
-      {texture && (
+      {/* Full 360° curved background - only when texture fully loaded */}
+      {texture && texture.image && (
         <mesh position={[0, 1.6, 0]}>
           <cylinderGeometry args={[
             20,  // radiusTop - 20m radius (larger for more immersion)
@@ -128,8 +123,8 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
         </mesh>
       )}
 
-      {/* Fallback: Full 360° dark environment if no texture */}
-      {!texture && (
+      {/* Fallback: Full 360° dark environment - ALWAYS render for immersion */}
+      {(!texture || !texture.image) && (
         <mesh position={[0, 1.6, 0]}>
           <cylinderGeometry args={[20, 20, 12, 64, 1, true, 0, Math.PI * 2]} />
           <meshBasicMaterial
@@ -284,8 +279,9 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         <Gymnasium backgroundImageUrl={backgroundImageUrl} />
       )}
 
-      {/* Coach video panel - TEMPORARILY DISABLED FOR VR DEBUGGING */}
-      {/* {showCoach && roomName && userName ? (
+      {/* Coach video panel - positioned to the right */}
+      {/* KEEP as Three.js texture for now (Twilio integration) */}
+      {showCoach && roomName && userName ? (
         <TwilioVideoTexture
           position={[2.5, 1.5, -3]}
           roomName={roomName}
@@ -298,10 +294,10 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
           rotation={[0, -Math.PI / 6, 0]}
           title="Coach"
         />
-      ) : null} */}
+      ) : null}
 
-      {/* TECHNIQUE VIDEO - TEMPORARILY DISABLED FOR VR DEBUGGING */}
-      {/* {videoEnabled && supportsXRLayers() && (
+      {/* TECHNIQUE VIDEO - WebXR Layer (compositor-rendered, saves ~4MB GPU memory) */}
+      {videoEnabled && supportsXRLayers() && (
         <VideoXRLayer
           videoUrl="/video/latora30.mp4"
           position={[-2.5, 1.5, -3]}
@@ -313,26 +309,26 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
             setLayers((prev) => ({ ...prev, technique: layer }));
           }}
         />
-      )} */}
+      )}
 
-      {/* Fallback: Three.js technique video - TEMPORARILY DISABLED FOR VR DEBUGGING */}
-      {/* {videoEnabled && !supportsXRLayers() && (
+      {/* Fallback: Three.js technique video if Layers API not supported */}
+      {videoEnabled && !supportsXRLayers() && (
         <VideoTexture
           position={[-2.5, 1.5, -3]}
           rotation={[0, Math.PI / 6, 0]}
           videoUrl="/video/latora30.mp4"
           title="Wrestling Technique"
         />
-      )} */}
+      )}
 
-      {/* BlazePose Mirror - TEMPORARILY DISABLED FOR VR DEBUGGING */}
-      {/* {showMirror && (
+      {/* BlazePose Mirror - Always show when enabled */}
+      {showMirror && (
         <AvatarMirror
           position={[0, 1.6, -2]}
           rotation={[0, 0, 0]}
           cameraDeviceId={cameraDeviceId}
         />
-      )} */}
+      )}
     </>
   );
 }
@@ -371,26 +367,19 @@ export default function VRSceneClient(props: VRSceneProps) {
         style={{ background: 'transparent' }}
         onCreated={(state) => {
           console.log('✅ Canvas created, WebGL ready');
-          console.log('Camera position:', state.camera.position);
-          console.log('Scene children count:', state.scene.children.length);
-        }}
-        onError={(error) => {
-          console.error('❌ Canvas ERROR:', error);
         }}
       >
         {/* Wrap scene content with XR component and pass the store */}
         {/* Controllers and hands are enabled by default in v6 - no components needed! */}
         {/* User's avatar is their controllers/hands - Meta handles avatar rendering */}
         {/* Request 'layers' feature for WebXR Layers API support */}
-        <React.Suspense fallback={null}>
-          <XR
-            store={xrStore}
-            referenceSpace="local-floor"
-            foveation={0}
-          >
-            <VRSceneContent {...props} />
-          </XR>
-        </React.Suspense>
+        <XR
+          store={xrStore}
+          referenceSpace="local-floor"
+          foveation={0}
+        >
+          <VRSceneContent {...props} />
+        </XR>
       </Canvas>
     </div>
   );
