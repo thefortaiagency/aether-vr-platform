@@ -235,28 +235,39 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
     }
   }, [session, layers.background, layers.technique, layers.webcam]);
 
+  // Make camera look forward
+  React.useEffect(() => {
+    console.log('[VR SCENE] Setting up camera to look forward');
+  }, []);
+
   return (
     <>
       {/* SUPER BRIGHT LIGHTING */}
       <ambientLight intensity={2.0} />
       <pointLight position={[0, 0, 0]} intensity={2.0} />
 
-      {/* GIANT YELLOW SPHERE - IMPOSSIBLE TO MISS */}
-      <mesh position={[0, 1.6, -5]}>
-        <sphereGeometry args={[2, 32, 32]} />
-        <meshBasicMaterial color="yellow" />
-      </mesh>
-
-      {/* GIANT RED BOX - RIGHT IN FRONT */}
-      <mesh position={[0, 1.6, -3]}>
+      {/* GIANT RED BOX - RIGHT IN YOUR FACE */}
+      <mesh position={[0, 1.6, -2]}>
         <boxGeometry args={[1, 1, 1]} />
         <meshBasicMaterial color="red" />
       </mesh>
 
-      {/* GREEN FLOOR */}
+      {/* GIANT YELLOW SPHERE - BEHIND THE BOX */}
+      <mesh position={[0, 1.6, -4]}>
+        <sphereGeometry args={[2, 32, 32]} />
+        <meshBasicMaterial color="yellow" />
+      </mesh>
+
+      {/* GREEN FLOOR - BELOW */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
         <planeGeometry args={[20, 20]} />
-        <meshBasicMaterial color="green" side={2} />
+        <meshBasicMaterial color="lime" side={2} />
+      </mesh>
+
+      {/* BLUE CEILING - TO TEST IF WE'RE LOOKING UP OR DOWN */}
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 4, 0]}>
+        <planeGeometry args={[20, 20]} />
+        <meshBasicMaterial color="blue" side={2} />
       </mesh>
     </>
   );
@@ -303,6 +314,10 @@ export default function VRSceneClient(props: VRSceneProps) {
           console.log('✅ Canvas created, WebGL ready');
           console.log('📐 Canvas size:', state.gl.domElement.width, 'x', state.gl.domElement.height);
           console.log('📐 Viewport:', state.viewport.width, 'x', state.viewport.height);
+
+          // Force camera to look forward at the red box
+          state.camera.lookAt(0, 1.6, -2);
+          console.log('📷 Camera looking at red box position [0, 1.6, -2]');
         }}
       >
         {/* Wrap scene content with XR component and pass the store */}
