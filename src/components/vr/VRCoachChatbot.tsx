@@ -129,7 +129,7 @@ export function VRCoachChatbot({ position = [0, 2.5, -2] }: VRCoachChatbotProps)
     <group position={position}>
       <Html center transform occlude>
         <div style={{ width: '500px', pointerEvents: 'all' }}>
-          <div className="bg-black/90 backdrop-blur-xl border border-[#D4AF38]/30 shadow-2xl rounded-lg overflow-hidden">
+          <div className="bg-black/95 border border-[#D4AF38]/30 shadow-2xl rounded-lg overflow-hidden">
             {/* Header */}
             <div className="p-4 border-b border-[#D4AF38]/20 flex items-center justify-between">
               <div className="flex items-center gap-3">
