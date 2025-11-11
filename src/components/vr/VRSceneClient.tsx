@@ -235,37 +235,28 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
     }
   }, [session, layers.background, layers.technique, layers.webcam]);
 
-  // DEBUG: Check conditional before render
-  console.log('[VR SCENE CONTENT] 🔍 About to render. backgroundImageUrl:', backgroundImageUrl, 'truthy?', !!backgroundImageUrl);
-
   return (
     <>
-      {/* Good lighting for VR */}
-      <ambientLight intensity={1.0} />
-      <directionalLight position={[0, 10, 0]} intensity={1.0} />
+      {/* SUPER BRIGHT LIGHTING */}
+      <ambientLight intensity={2.0} />
+      <pointLight position={[0, 0, 0]} intensity={2.0} />
 
-      {/* Floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-        <planeGeometry args={[100, 100]} />
-        <meshBasicMaterial color={0x1a1a2e} />
+      {/* GIANT YELLOW SPHERE - IMPOSSIBLE TO MISS */}
+      <mesh position={[0, 1.6, -5]}>
+        <sphereGeometry args={[2, 32, 32]} />
+        <meshBasicMaterial color="yellow" />
       </mesh>
 
-      {/* 360° Background - Add it back */}
-      {(() => {
-        console.log('[VR SCENE CONTENT] 🎯 Inside conditional render. backgroundImageUrl:', backgroundImageUrl);
-        if (backgroundImageUrl) {
-          console.log('[VR SCENE CONTENT] ✅ Rendering Gymnasium component NOW!');
-          return <Gymnasium backgroundImageUrl={backgroundImageUrl} />;
-        } else {
-          console.log('[VR SCENE CONTENT] ❌ No backgroundImageUrl - skipping Gymnasium');
-          return null;
-        }
-      })()}
-
-      {/* Test box to confirm rendering works */}
-      <mesh position={[0, 1.5, -2]}>
+      {/* GIANT RED BOX - RIGHT IN FRONT */}
+      <mesh position={[0, 1.6, -3]}>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color="red" />
+        <meshBasicMaterial color="red" />
+      </mesh>
+
+      {/* GREEN FLOOR */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+        <planeGeometry args={[20, 20]} />
+        <meshBasicMaterial color="green" side={2} />
       </mesh>
     </>
   );
