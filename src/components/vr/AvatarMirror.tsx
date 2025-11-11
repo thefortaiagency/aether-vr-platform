@@ -86,14 +86,28 @@ export function AvatarMirror({
         canvas.height = 240;
         canvasRef.current = canvas;
 
+        // Draw initial frame to canvas before creating texture
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
         // Replace placeholder with real texture
         const texture = new THREE.CanvasTexture(canvas);
         texture.minFilter = THREE.LinearFilter;
         texture.magFilter = THREE.LinearFilter;
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.needsUpdate = true; // CRITICAL: Force initial texture upload
         textureRef.current = texture;
-        setTextureReady(true); // Trigger re-render to show mesh
 
-        console.log('[AvatarMirror] Real webcam texture ready');
+        console.log('[AvatarMirror] CanvasTexture created, waiting for video...');
+
+        // Wait for video to actually start playing before showing mesh
+        video.addEventListener('playing', () => {
+          console.log('[AvatarMirror] Video playing, enabling texture');
+          setTextureReady(true);
+        }, { once: true });
 
         // Initialize TensorFlow backend with WebGPU fallback
         console.log('[AvatarMirror] Initializing TensorFlow backend...');
@@ -178,9 +192,17 @@ export function AvatarMirror({
 
       const canvas = canvasRef.current;
       const video = videoRef.current;
+      const texture = textureRef.current;
       const ctx = canvas.getContext('2d');
 
-      if (!ctx || video.readyState < 2) return;
+      // CRITICAL: Ensure video is actually playing and texture is ready
+      if (!ctx || video.readyState < 2 || !textureReady) return;
+
+      // CRITICAL: Verify texture is properly initialized
+      if (!texture.image || texture.image !== canvas) {
+        console.warn('[AvatarMirror] Texture not properly initialized, skipping frame');
+        return;
+      }
 
       // Draw video frame EVERY frame (90+ FPS in VR)
       // Mirror for WebXR (CSS transforms don't work in WebGL textures)
@@ -216,9 +238,9 @@ export function AvatarMirror({
         drawSkeleton(ctx, lastPoseRef.current, canvas.width, canvas.height);
       }
 
-      // Update texture
-      if (textureRef.current) {
-        textureRef.current.needsUpdate = true;
+      // Update texture - CRITICAL: Only if texture is properly initialized
+      if (texture && texture.image === canvas) {
+        texture.needsUpdate = true;
       }
     } catch (error) {
       // Catch any errors in the render loop to prevent crashes
