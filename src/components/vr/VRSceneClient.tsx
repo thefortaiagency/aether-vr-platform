@@ -234,14 +234,39 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
       {/* VR Controller Screenshot Support - Press Y/B button or grip to take screenshot */}
       {onScreenshot && <VRControllerScreenshot onScreenshot={onScreenshot} />}
 
-      {/* Bright, even lighting */}
-      <ambientLight intensity={0.8} />
+      {/* VERY BRIGHT lighting for VR visibility */}
+      <ambientLight intensity={1.5} />
 
       {/* Main light from above */}
-      <directionalLight position={[0, 20, 0]} intensity={1.5} castShadow />
+      <directionalLight position={[0, 20, 0]} intensity={2.0} castShadow />
 
       {/* Fill light to eliminate shadows */}
-      <hemisphereLight intensity={0.6} color="#ffffff" groundColor="#444444" />
+      <hemisphereLight intensity={1.0} color="#ffffff" groundColor="#666666" />
+
+      {/* Reference spheres - ALWAYS VISIBLE for VR debugging */}
+      {/* Front center - RED */}
+      <mesh position={[0, 1.6, -3]}>
+        <sphereGeometry args={[0.3]} />
+        <meshBasicMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={2} />
+      </mesh>
+
+      {/* Left - GREEN */}
+      <mesh position={[-3, 1.6, -3]}>
+        <sphereGeometry args={[0.3]} />
+        <meshBasicMaterial color="#00ff00" emissive="#00ff00" emissiveIntensity={2} />
+      </mesh>
+
+      {/* Right - BLUE */}
+      <mesh position={[3, 1.6, -3]}>
+        <sphereGeometry args={[0.3]} />
+        <meshBasicMaterial color="#0000ff" emissive="#0000ff" emissiveIntensity={2} />
+      </mesh>
+
+      {/* Above - YELLOW */}
+      <mesh position={[0, 3, -3]}>
+        <sphereGeometry args={[0.3]} />
+        <meshBasicMaterial color="#ffff00" emissive="#ffff00" emissiveIntensity={2} />
+      </mesh>
 
       {/* 360° BACKGROUND - WebXR Layer (compositor-rendered, saves ~8MB GPU memory) */}
       {backgroundImageUrl && supportsXRLayers() && (
