@@ -77,9 +77,6 @@ export function AvatarMirror({
         video.playsInline = true;
         videoRef.current = video;
 
-        await video.play();
-        console.log('[AvatarMirror] ✅ Webcam started');
-
         // Create canvas for rendering - match lower resolution
         const canvas = document.createElement('canvas');
         canvas.width = 320;
@@ -101,13 +98,15 @@ export function AvatarMirror({
         texture.needsUpdate = true; // CRITICAL: Force initial texture upload
         textureRef.current = texture;
 
-        console.log('[AvatarMirror] CanvasTexture created, waiting for video...');
+        console.log('[AvatarMirror] CanvasTexture created');
 
-        // Wait for video to actually start playing before showing mesh
-        video.addEventListener('playing', () => {
-          console.log('[AvatarMirror] Video playing, enabling texture');
-          setTextureReady(true);
-        }, { once: true });
+        // Start video playback
+        await video.play();
+        console.log('[AvatarMirror] ✅ Webcam started and playing');
+
+        // Texture is ready - show the mesh
+        setTextureReady(true);
+        console.log('[AvatarMirror] ✅ Texture ready, mesh will render');
 
         // Initialize TensorFlow backend with WebGPU fallback
         console.log('[AvatarMirror] Initializing TensorFlow backend...');
