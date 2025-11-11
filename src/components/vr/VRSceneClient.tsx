@@ -291,7 +291,7 @@ export default function VRSceneClient(props: VRSceneProps) {
     <div className="w-full h-full">
       <Canvas
         shadows
-        camera={{ position: [0, 1.6, 3], fov: 75 }}
+        camera={{ position: [0, 1.6, 0], fov: 75 }}
         gl={{
           antialias: true,
           alpha: true,
