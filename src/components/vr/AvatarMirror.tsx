@@ -69,11 +69,20 @@ export function AvatarMirror({
           return;
         }
 
-        // Create video element
+        // Create video element and add to DOM (required for VR)
         const video = document.createElement('video');
         video.srcObject = stream;
         video.autoplay = true;
         video.playsInline = true;
+
+        // Position off-screen (NOT display:none - that breaks textures)
+        video.style.position = 'absolute';
+        video.style.left = '-9999px';
+        video.style.opacity = '0';
+        video.style.pointerEvents = 'none';
+
+        // Add to DOM (required for texture to work in some VR browsers)
+        document.body.appendChild(video);
         videoRef.current = video;
 
         // Start video playback FIRST
@@ -172,6 +181,9 @@ export function AvatarMirror({
       mounted = false;
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
+      }
+      if (videoRef.current && videoRef.current.parentNode) {
+        videoRef.current.parentNode.removeChild(videoRef.current);
       }
       if (detectorRef.current) {
         detectorRef.current.dispose();
