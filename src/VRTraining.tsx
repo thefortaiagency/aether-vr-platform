@@ -170,18 +170,7 @@ function VRTraining() {
 
   return (
     <div className="relative w-full h-full">
-      {/* Full-screen background image */}
-      {backgroundImageUrl && (
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: `url(${backgroundImageUrl})`,
-            filter: 'brightness(0.9)'
-          }}
-        />
-      )}
-
-      {/* Full-screen VR Scene with transparent background */}
+      {/* Full-screen VR Scene - background is rendered in 3D, not CSS */}
       <div ref={sceneContainerRef} className="absolute inset-0">
         <VRScene
           activeExercise="stance"
