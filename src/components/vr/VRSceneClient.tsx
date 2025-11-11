@@ -284,9 +284,8 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         <Gymnasium backgroundImageUrl={backgroundImageUrl} />
       )}
 
-      {/* Coach video panel - positioned to the right */}
-      {/* KEEP as Three.js texture for now (Twilio integration) */}
-      {showCoach && roomName && userName ? (
+      {/* Coach video panel - TEMPORARILY DISABLED FOR VR DEBUGGING */}
+      {/* {showCoach && roomName && userName ? (
         <TwilioVideoTexture
           position={[2.5, 1.5, -3]}
           roomName={roomName}
@@ -299,10 +298,10 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
           rotation={[0, -Math.PI / 6, 0]}
           title="Coach"
         />
-      ) : null}
+      ) : null} */}
 
-      {/* TECHNIQUE VIDEO - WebXR Layer (compositor-rendered, saves ~4MB GPU memory) */}
-      {videoEnabled && supportsXRLayers() && (
+      {/* TECHNIQUE VIDEO - TEMPORARILY DISABLED FOR VR DEBUGGING */}
+      {/* {videoEnabled && supportsXRLayers() && (
         <VideoXRLayer
           videoUrl="/video/latora30.mp4"
           position={[-2.5, 1.5, -3]}
@@ -314,26 +313,26 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
             setLayers((prev) => ({ ...prev, technique: layer }));
           }}
         />
-      )}
+      )} */}
 
-      {/* Fallback: Three.js technique video if Layers API not supported */}
-      {videoEnabled && !supportsXRLayers() && (
+      {/* Fallback: Three.js technique video - TEMPORARILY DISABLED FOR VR DEBUGGING */}
+      {/* {videoEnabled && !supportsXRLayers() && (
         <VideoTexture
           position={[-2.5, 1.5, -3]}
           rotation={[0, Math.PI / 6, 0]}
           videoUrl="/video/latora30.mp4"
           title="Wrestling Technique"
         />
-      )}
+      )} */}
 
-      {/* BlazePose Mirror - Always show when enabled */}
-      {showMirror && (
+      {/* BlazePose Mirror - TEMPORARILY DISABLED FOR VR DEBUGGING */}
+      {/* {showMirror && (
         <AvatarMirror
           position={[0, 1.6, -2]}
           rotation={[0, 0, 0]}
           cameraDeviceId={cameraDeviceId}
         />
-      )}
+      )} */}
     </>
   );
 }
@@ -372,19 +371,26 @@ export default function VRSceneClient(props: VRSceneProps) {
         style={{ background: 'transparent' }}
         onCreated={(state) => {
           console.log('✅ Canvas created, WebGL ready');
+          console.log('Camera position:', state.camera.position);
+          console.log('Scene children count:', state.scene.children.length);
+        }}
+        onError={(error) => {
+          console.error('❌ Canvas ERROR:', error);
         }}
       >
         {/* Wrap scene content with XR component and pass the store */}
         {/* Controllers and hands are enabled by default in v6 - no components needed! */}
         {/* User's avatar is their controllers/hands - Meta handles avatar rendering */}
         {/* Request 'layers' feature for WebXR Layers API support */}
-        <XR
-          store={xrStore}
-          referenceSpace="local-floor"
-          foveation={0}
-        >
-          <VRSceneContent {...props} />
-        </XR>
+        <React.Suspense fallback={null}>
+          <XR
+            store={xrStore}
+            referenceSpace="local-floor"
+            foveation={0}
+          >
+            <VRSceneContent {...props} />
+          </XR>
+        </React.Suspense>
       </Canvas>
     </div>
   );
