@@ -252,13 +252,13 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         />
       )}
 
-      {/* TEMPORARILY DISABLED - Gymnasium background */}
-      {/* {backgroundImageUrl && !supportsXRLayers() && (
+      {/* Gymnasium background fallback when XR Layers not supported */}
+      {backgroundImageUrl && !supportsXRLayers() && (
         <Gymnasium backgroundImageUrl={backgroundImageUrl} />
-      )} */}
+      )}
 
-      {/* TEMPORARILY DISABLED - Coach video panel */}
-      {/* {showCoach && roomName && userName ? (
+      {/* Coach video panel */}
+      {showCoach && roomName && userName ? (
         <TwilioVideoTexture
           position={[2.5, 1.5, -3]}
           roomName={roomName}
@@ -271,10 +271,10 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
           rotation={[0, -Math.PI / 6, 0]}
           title="Coach"
         />
-      ) : null} */}
+      ) : null}
 
-      {/* TEMPORARILY DISABLED - Technique video */}
-      {/* {videoEnabled && supportsXRLayers() && (
+      {/* Technique video */}
+      {videoEnabled && supportsXRLayers() && (
         <VideoXRLayer
           videoUrl="/video/latora30.mp4"
           position={[-2.5, 1.5, -3]}
@@ -295,11 +295,10 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
           videoUrl="/video/latora30.mp4"
           title="Wrestling Technique"
         />
-      )} */}
+      )}
 
-      {/* Webcam Mirror - Use AvatarMirror for both desktop AND VR */}
-      {/* XR Layers causes camera permission issues when transitioning to VR */}
-      {showMirror && (
+      {/* TEMPORARILY DISABLED - Webcam Mirror */}
+      {/* {showMirror && (
         <AvatarMirror
           position={[0, 1.6, -2]}
           rotation={[0, 0, 0]}
@@ -308,7 +307,7 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
             setLayers((prev) => ({ ...prev, webcam: layer }));
           }}
         />
-      )}
+      )} */}
     </>
   );
 }
