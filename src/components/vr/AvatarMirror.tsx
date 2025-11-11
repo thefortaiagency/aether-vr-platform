@@ -194,7 +194,21 @@ export function AvatarMirror({
 
   return (
     <group position={mirrorPosition} rotation={rotation}>
-      {/* ABSOLUTE MINIMUM TEST - ONLY the video plane, nothing else */}
+      {/* DEBUG: Bright markers to show mirror position */}
+      <mesh position={[0, 0, 0.01]}>
+        <sphereGeometry args={[0.2]} />
+        <meshBasicMaterial color={0xff0000} />
+      </mesh>
+      <mesh position={[1, 0, 0.01]}>
+        <sphereGeometry args={[0.2]} />
+        <meshBasicMaterial color={0x00ff00} />
+      </mesh>
+      <mesh position={[-1, 0, 0.01]}>
+        <sphereGeometry args={[0.2]} />
+        <meshBasicMaterial color={0x0000ff} />
+      </mesh>
+
+      {/* Video mirror plane */}
       <mesh ref={meshRef} scale={mirrorScale} material={mirrorMaterial}>
         <planeGeometry args={[1, 1]} />
       </mesh>
