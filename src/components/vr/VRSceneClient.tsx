@@ -218,11 +218,13 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
       <ambientLight intensity={1.0} />
       <directionalLight position={[0, 10, 0]} intensity={1.0} />
 
-      {/* Dark skybox sphere for immersion */}
-      <mesh>
-        <sphereGeometry args={[50, 32, 32]} />
-        <meshBasicMaterial color={0x0a0a15} side={THREE.BackSide} />
-      </mesh>
+      {/* Dark skybox sphere for immersion - ONLY when no background image */}
+      {!backgroundImageUrl && (
+        <mesh>
+          <sphereGeometry args={[50, 32, 32]} />
+          <meshBasicMaterial color={0x0a0a15} side={THREE.BackSide} />
+        </mesh>
+      )}
 
       {/* Floor */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
