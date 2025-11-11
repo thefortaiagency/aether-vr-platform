@@ -102,35 +102,22 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
         />
       </mesh>
 
-      {/* Full 360° curved background - only when texture fully loaded */}
+      {/* 360° Skybox sphere - with texture when loaded */}
       {texture && texture.image && (
-        <mesh position={[0, 1.6, 0]}>
-          <cylinderGeometry args={[
-            20,  // radiusTop - 20m radius (larger for more immersion)
-            20,  // radiusBottom - 20m radius
-            12,  // height - 12m tall (taller to fill vertical FOV)
-            64,  // radialSegments - smooth curve
-            1,   // heightSegments
-            true, // openEnded - open top/bottom
-            0,   // thetaStart - start angle
-            Math.PI * 2  // thetaLength - FULL 360° wrap
-          ]} />
+        <mesh>
+          <sphereGeometry args={[50, 64, 64]} />
           <meshBasicMaterial
             map={texture}
             side={THREE.BackSide}
-            toneMapped={false}
           />
         </mesh>
       )}
 
-      {/* Fallback: Full 360° dark environment - ALWAYS render for immersion */}
+      {/* Fallback: Dark skybox sphere - simple and reliable */}
       {(!texture || !texture.image) && (
-        <mesh position={[0, 1.6, 0]}>
-          <cylinderGeometry args={[20, 20, 12, 64, 1, true, 0, Math.PI * 2]} />
-          <meshBasicMaterial
-            color="#0a0a15"
-            side={THREE.BackSide}
-          />
+        <mesh>
+          <sphereGeometry args={[50, 32, 32]} />
+          <meshBasicMaterial color={0x0a0a15} side={THREE.BackSide} />
         </mesh>
       )}
     </>
