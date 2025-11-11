@@ -200,38 +200,23 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
       {/* VR Controller Screenshot Support - Press Y/B button or grip to take screenshot */}
       {onScreenshot && <VRControllerScreenshot onScreenshot={onScreenshot} />}
 
-      {/* VERY BRIGHT lighting for VR visibility */}
-      <ambientLight intensity={1.5} />
+      {/* MINIMAL lighting - no shadows, no complex features */}
+      <ambientLight intensity={1.0} />
 
-      {/* Main light from above */}
-      <directionalLight position={[0, 20, 0]} intensity={2.0} castShadow />
-
-      {/* Fill light to eliminate shadows */}
-      <hemisphereLight intensity={1.0} color="#ffffff" groundColor="#666666" />
-
-      {/* Reference spheres - ALWAYS VISIBLE for VR debugging */}
-      {/* Front center - RED */}
-      <mesh position={[0, 1.6, -3]}>
-        <sphereGeometry args={[0.3]} />
-        <meshBasicMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={2} />
+      {/* Simple test cubes - NO emissive, just basic color */}
+      <mesh position={[0, 1.6, -2]}>
+        <boxGeometry args={[0.5, 0.5, 0.5]} />
+        <meshBasicMaterial color={0xff0000} />
       </mesh>
 
-      {/* Left - GREEN */}
-      <mesh position={[-3, 1.6, -3]}>
-        <sphereGeometry args={[0.3]} />
-        <meshBasicMaterial color="#00ff00" emissive="#00ff00" emissiveIntensity={2} />
+      <mesh position={[-2, 1.6, -2]}>
+        <boxGeometry args={[0.5, 0.5, 0.5]} />
+        <meshBasicMaterial color={0x00ff00} />
       </mesh>
 
-      {/* Right - BLUE */}
-      <mesh position={[3, 1.6, -3]}>
-        <sphereGeometry args={[0.3]} />
-        <meshBasicMaterial color="#0000ff" emissive="#0000ff" emissiveIntensity={2} />
-      </mesh>
-
-      {/* Above - YELLOW */}
-      <mesh position={[0, 3, -3]}>
-        <sphereGeometry args={[0.3]} />
-        <meshBasicMaterial color="#ffff00" emissive="#ffff00" emissiveIntensity={2} />
+      <mesh position={[2, 1.6, -2]}>
+        <boxGeometry args={[0.5, 0.5, 0.5]} />
+        <meshBasicMaterial color={0x0000ff} />
       </mesh>
 
       {/* 360° BACKGROUND - WebXR Layer (compositor-rendered, saves ~8MB GPU memory) */}
@@ -245,10 +230,10 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         />
       )}
 
-      {/* Fallback: Three.js background if Layers API not supported */}
-      {backgroundImageUrl && !supportsXRLayers() && (
+      {/* TEMPORARILY DISABLED - Gymnasium background */}
+      {/* {backgroundImageUrl && !supportsXRLayers() && (
         <Gymnasium backgroundImageUrl={backgroundImageUrl} />
-      )}
+      )} */}
 
       {/* TEMPORARILY DISABLED - Coach video panel */}
       {/* {showCoach && roomName && userName ? (
