@@ -123,10 +123,13 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
     return (
       <mesh position={[0, 0, 0]}>
         <sphereGeometry args={[50, 60, 40]} />
-        <meshBasicMaterial
+        <meshStandardMaterial
           map={texture}
           side={THREE.BackSide}
           toneMapped={false}
+          emissive="#ffffff"
+          emissiveMap={texture}
+          emissiveIntensity={0.8}
         />
       </mesh>
     );
@@ -277,7 +280,7 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
             <VideoTextureSimple
               position={[0, 0, 0]}
               rotation={[0, -video.angle, 0]}
-              videoUrl="/videos/double-leg.mp4"
+              videoUrl="/video/latora30.mp4"
             />
           </group>
         );
