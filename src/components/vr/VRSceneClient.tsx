@@ -97,6 +97,11 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
 
   console.log('[GYMNASIUM] Rendering - texture exists:', !!texture);
 
+  // Only render if texture is loaded
+  if (!texture) {
+    return null;
+  }
+
   return (
     <>
       {/* 360° Background sphere with texture */}
