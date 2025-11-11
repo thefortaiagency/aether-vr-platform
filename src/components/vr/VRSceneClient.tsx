@@ -304,6 +304,9 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
           position={[0, 1.6, -2]}
           rotation={[0, 0, 0]}
           cameraDeviceId={cameraDeviceId}
+          onXRLayerChange={(layer) => {
+            setLayers((prev) => ({ ...prev, webcam: layer }));
+          }}
         />
       )}
     </>

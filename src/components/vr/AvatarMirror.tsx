@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useXR } from '@react-three/xr';
 import * as THREE from 'three';
@@ -9,17 +9,20 @@ import * as tf from '@tensorflow/tfjs-core';
 import '@tensorflow/tfjs-backend-webgl';
 // Optional: WebGPU backend for better performance
 import '@tensorflow/tfjs-backend-webgpu';
+import { supportsXRLayers, createQuadLayer } from '@/lib/xr-layers';
 
 interface AvatarMirrorProps {
   position?: [number, number, number];
   rotation?: [number, number, number];
   cameraDeviceId?: string; // Allow external camera selection
+  onXRLayerChange?: (layer: XRQuadLayer | null) => void;
 }
 
 export function AvatarMirror({
   position = [0, 1.5, -2],
   rotation = [0, 0, 0],
-  cameraDeviceId
+  cameraDeviceId,
+  onXRLayerChange
 }: AvatarMirrorProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const materialRef = useRef<THREE.MeshBasicMaterial | null>(null);
@@ -31,12 +34,25 @@ export function AvatarMirror({
   // XR session tracking for video playback management
   const { session } = useXR();
 
+  const [px, py, pz] = position;
+  const [rx, ry, rz] = rotation;
+
   // Store as arrays (tuples) for React Three Fiber - NOT Vector3 objects
-  const mirrorPosition = position;
-  const mirrorScale: [number, number, number] = [2.5, 3, 1]; // MUCH LARGER for VR visibility (2.5m wide x 3m tall)
+  const mirrorPosition = useMemo(() => [px, py, pz] as [number, number, number], [px, py, pz]);
+  const mirrorRotation = useMemo(() => [rx, ry, rz] as [number, number, number], [rx, ry, rz]);
+  const mirrorScale = useMemo(() => [2.5, 3, 1] as [number, number, number], []); // MUCH LARGER for VR visibility (2.5m wide x 3m tall)
+  const [mirrorWidth, mirrorHeight] = mirrorScale;
 
   // Store TEXTURE in ref - let R3F handle material cloning for XR stereo
   const [mirrorTexture, setMirrorTexture] = useState<THREE.CanvasTexture | null>(null);
+  const xrLayerRef = useRef<XRQuadLayer | null>(null);
+  const [usingXrLayer, setUsingXrLayer] = useState(false);
+  const xrLayersSupported = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    return supportsXRLayers();
+  }, []);
 
   // Initialize webcam and pose detector (client-side only)
   useEffect(() => {
@@ -300,12 +316,96 @@ export function AvatarMirror({
     }
   }, [mirrorTexture]);
 
+  // Promote the webcam feed into a native WebXR quad layer when supported
+  useEffect(() => {
+    if (!session || !xrLayersSupported) {
+      if (xrLayerRef.current) {
+        console.log('[AvatarMirror] XR session ended or layers unsupported – tearing down webcam layer');
+        onXRLayerChange?.(null);
+        xrLayerRef.current = null;
+        setUsingXrLayer(false);
+      }
+      return;
+    }
+
+    const video = videoRef.current;
+    if (!video) {
+      // Wait for video initialization before attempting to create the layer
+      return;
+    }
+
+    if (xrLayerRef.current) {
+      // Layer already active – ensure consumer knows it's live
+      onXRLayerChange?.(xrLayerRef.current);
+      setUsingXrLayer(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        console.log('[AvatarMirror] Creating WebXR quad layer for webcam mirror');
+        const referenceSpace = await session.requestReferenceSpace('local-floor');
+        if (cancelled) return;
+
+        const mediaBinding = new XRMediaBinding(session);
+        const layer = createQuadLayer(
+          session,
+          mediaBinding,
+          video,
+          referenceSpace,
+          mirrorPosition,
+          mirrorRotation,
+          mirrorWidth,
+          mirrorHeight
+        );
+
+        if (!layer || cancelled) {
+          return;
+        }
+
+        xrLayerRef.current = layer;
+        setUsingXrLayer(true);
+        console.log('[AvatarMirror] ✅ WebXR quad layer ready');
+        onXRLayerChange?.(layer);
+      } catch (error) {
+        console.error('[AvatarMirror] ❌ Failed to create WebXR webcam layer:', error);
+        setUsingXrLayer(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (xrLayerRef.current) {
+        console.log('[AvatarMirror] Cleaning up WebXR quad layer');
+        onXRLayerChange?.(null);
+        xrLayerRef.current = null;
+      }
+      setUsingXrLayer(false);
+    };
+  }, [
+    session,
+    xrLayersSupported,
+    mirrorTexture,
+    onXRLayerChange,
+    mirrorPosition,
+    mirrorRotation,
+    mirrorWidth,
+    mirrorHeight
+  ]);
+
   useFrame(() => {
     const texture = textureRef.current;
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvasContextRef.current;
     const videoTrack = videoTrackRef.current;
+
+    if (session && xrLayersSupported && xrLayerRef.current) {
+      // Native XR layer handles presentation – skip Three.js texture updates to save work
+      return;
+    }
 
     if (texture && video && video.readyState >= video.HAVE_CURRENT_DATA) {
       if (canvas && context) {
@@ -362,12 +462,14 @@ export function AvatarMirror({
   });
 
   // Don't render anything until texture is ready
-  if (!mirrorTexture) {
+  const shouldRenderMirrorMesh = !(session && xrLayersSupported && usingXrLayer);
+
+  if (!mirrorTexture && shouldRenderMirrorMesh) {
     return null;
   }
 
   return (
-    <group position={mirrorPosition} rotation={rotation}>
+    <group position={mirrorPosition} rotation={mirrorRotation}>
       {/* DEBUG: Bright markers to show mirror position */}
       <mesh position={[0, 0, 0.01]}>
         <sphereGeometry args={[0.2]} />
@@ -383,15 +485,17 @@ export function AvatarMirror({
       </mesh>
 
       {/* Video mirror plane - R3F handles material cloning for XR stereo */}
-      <mesh scale={mirrorScale}>
-        <planeGeometry args={[1, 1]} />
-        <meshBasicMaterial
-          ref={materialRef}
-          map={mirrorTexture}
-          toneMapped={false}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
+      {shouldRenderMirrorMesh && mirrorTexture && (
+        <mesh scale={mirrorScale}>
+          <planeGeometry args={[1, 1]} />
+          <meshBasicMaterial
+            ref={materialRef}
+            map={mirrorTexture}
+            toneMapped={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
     </group>
   );
 }
