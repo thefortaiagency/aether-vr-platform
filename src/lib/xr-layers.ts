@@ -24,18 +24,15 @@ export function supportsXRLayers(): boolean {
 
   const hasMediaBinding = 'XRMediaBinding' in window;
   const hasWebGLBinding = 'XRWebGLBinding' in window;
-  const wouldSupport = hasMediaBinding && hasWebGLBinding;
+  const isSupported = hasMediaBinding && hasWebGLBinding;
 
   console.log('[XR LAYERS] Browser support check:', {
     XRMediaBinding: hasMediaBinding,
     XRWebGLBinding: hasWebGLBinding,
-    wouldSupport,
-    actuallySupported: false // FORCE DISABLED for now
+    isSupported,
   });
 
-  // FORCE DISABLE XR LAYERS - they're causing black screen
-  // TODO: Debug why layers initialization fails silently
-  return false;
+  return isSupported;
 }
 
 /**
