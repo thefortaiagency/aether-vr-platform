@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { XR, createXRStore, useXR } from '@react-three/xr';
 import * as THREE from 'three';
@@ -42,6 +42,7 @@ const xrStore = createXRStore({
 // Gymnasium Environment - Curved background screen for VR (not full 360°)
 function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
   const [texture, setTexture] = React.useState<THREE.Texture | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -51,9 +52,11 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
     if (!backgroundImageUrl) {
       console.log('[GYMNASIUM] No background URL provided');
       setTexture(null);
+      setIsLoading(false);
       return;
     }
 
+    setIsLoading(true);
     let mounted = true;
     console.log('[GYMNASIUM] Loading texture from:', backgroundImageUrl);
     const loader = new THREE.TextureLoader();
@@ -80,6 +83,7 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
 
         loadedTexture = tex;
         setTexture(tex);
+        setIsLoading(false);
         console.log('[GYMNASIUM] ✅ Texture state updated, should render background');
       },
       // onProgress - Loading callback
@@ -93,6 +97,7 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
         if (!mounted) return;
         console.error('[GYMNASIUM] ❌ Failed to load texture:', error);
         console.error('[GYMNASIUM] ❌ URL was:', backgroundImageUrl);
+        setIsLoading(false);
       }
     );
 
@@ -105,10 +110,8 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
     };
   }, [backgroundImageUrl]);
 
-  console.log('[GYMNASIUM] Rendering - texture exists:', !!texture);
-
-  // Only render if texture is loaded
-  if (!texture) {
+  // Don't render anything while loading or if no texture
+  if (isLoading || !texture) {
     return null;
   }
 
