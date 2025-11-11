@@ -225,9 +225,10 @@ export function AvatarMirror({
         <meshBasicMaterial color={0x0000ff} />
       </mesh>
 
-      {/* Video mirror plane */}
-      <mesh ref={meshRef} scale={mirrorScale} material={mirrorMaterial}>
+      {/* Video mirror plane - TEST with solid magenta if material fails */}
+      <mesh ref={meshRef} scale={mirrorScale}>
         <planeGeometry args={[1, 1]} />
+        <meshBasicMaterial color={0xff00ff} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );
