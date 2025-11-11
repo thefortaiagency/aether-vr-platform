@@ -250,9 +250,12 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
 
   return (
     <>
-      {/* Good lighting for VR */}
-      <ambientLight intensity={1.0} />
-      <directionalLight position={[0, 10, 0]} intensity={1.0} />
+      {/* Bright VR lighting - like a well-lit gymnasium */}
+      <ambientLight intensity={2.5} />
+      <directionalLight position={[0, 10, 0]} intensity={2.0} />
+      <directionalLight position={[5, 5, 5]} intensity={1.5} />
+      <directionalLight position={[-5, 5, -5]} intensity={1.5} />
+      <pointLight position={[0, 3, 0]} intensity={2.0} distance={20} />
 
       {/* 360° Wrestling Room Background */}
       {backgroundImageUrl && (
@@ -263,13 +266,20 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
       {videoEnabled && techniqueVideos.map((video, index) => {
         const x = Math.sin(video.angle) * radius;
         const z = Math.cos(video.angle) * radius;
+        console.log(`[VIDEO ${index}] ${video.name} at [${x.toFixed(2)}, ${videoHeight}, ${-z.toFixed(2)}]`);
         return (
-          <VideoTextureSimple
-            key={`technique-${index}`}
-            position={[x, videoHeight, -z]}
-            rotation={[0, -video.angle, 0]}
-            videoUrl="/videos/double-leg.mp4"
-          />
+          <group key={`technique-${index}`} position={[x, videoHeight, -z]}>
+            {/* Debug box to verify positioning */}
+            <mesh>
+              <boxGeometry args={[2, 1.5, 0.1]} />
+              <meshBasicMaterial color="#FFD700" wireframe />
+            </mesh>
+            <VideoTextureSimple
+              position={[0, 0, 0]}
+              rotation={[0, -video.angle, 0]}
+              videoUrl="/videos/double-leg.mp4"
+            />
+          </group>
         );
       })}
 
