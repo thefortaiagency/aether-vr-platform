@@ -245,14 +245,6 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
       {backgroundImageUrl && (
         <Gymnasium backgroundImageUrl={backgroundImageUrl} />
       )}
-
-      {/* Floor - only if no background */}
-      {!backgroundImageUrl && (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-          <planeGeometry args={[100, 100]} />
-          <meshBasicMaterial color={0x1a1a2e} />
-        </mesh>
-      )}
     </>
   );
 }
