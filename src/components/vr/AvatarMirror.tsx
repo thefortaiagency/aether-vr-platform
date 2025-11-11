@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { useXR } from '@react-three/xr';
 import * as THREE from 'three';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs-core';
@@ -24,6 +25,9 @@ export function AvatarMirror({
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const detectorRef = useRef<poseDetection.PoseDetector | null>(null);
+
+  // XR session tracking for video playback management
+  const { session } = useXR();
 
   // Store as arrays (tuples) for React Three Fiber - NOT Vector3 objects
   const mirrorPosition = position;
@@ -97,10 +101,10 @@ export function AvatarMirror({
 
         console.log('[AvatarMirror] VideoTexture created (NO skeleton overlay for now)');
 
-        // Create material with VideoTexture + bright fallback color to test
+        // Create material with VideoTexture (white = no color tint)
         const material = new THREE.MeshBasicMaterial({
           map: texture,
-          color: 0x00ffff, // BRIGHT CYAN - if you see this, texture isn't rendering
+          color: 0xffffff, // White = no tint
           side: THREE.DoubleSide,
           toneMapped: false,
         });
@@ -185,6 +189,21 @@ export function AvatarMirror({
     };
   }, [mirrorMaterial]);
 
+  // Force video playback when entering XR mode (WebKit bug workaround)
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (session) {
+      console.log('[AvatarMirror] XR session started - forcing video playback');
+      video.play().catch((err) => {
+        console.error('[AvatarMirror] Failed to resume video in VR:', err);
+      });
+    } else {
+      console.log('[AvatarMirror] XR session ended');
+    }
+  }, [session]);
+
   // CRITICAL: VideoTexture requires manual needsUpdate every frame in VR
   // Research: https://discourse.threejs.org/t/video-texture-no-longer-updating-after-entering-webxr-mode/43068
   const textureRef = useRef<THREE.VideoTexture | null>(null);
@@ -202,10 +221,13 @@ export function AvatarMirror({
     if (texture && video && video.readyState >= video.HAVE_CURRENT_DATA) {
       texture.needsUpdate = true; // CRITICAL for VR mode
 
-      // Debug: Verify material and texture in VR mode
-      if (meshRef.current && meshRef.current.material) {
+      // In XR mode, also force material update
+      if (session && meshRef.current && meshRef.current.material) {
         const mat = meshRef.current.material as THREE.MeshBasicMaterial;
-        if (!mat.map) {
+        if (mat.map) {
+          mat.map.needsUpdate = true;
+          mat.needsUpdate = true; // Force material shader update
+        } else {
           console.warn('[AvatarMirror] Material has no texture map in VR!');
         }
       }
