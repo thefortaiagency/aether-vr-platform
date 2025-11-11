@@ -9,6 +9,7 @@ import { TwilioVideoTexture } from './TwilioVideoTexture';
 import { VideoTexture } from './VideoTexture';
 import { VRControllerScreenshot } from './VRControllerScreenshot';
 import { AvatarMirror } from './AvatarMirror';
+import { WebcamXRLayer } from './WebcamXRLayer';
 import { BackgroundXRLayer } from './BackgroundXRLayer';
 import { VideoXRLayer } from './VideoXRLayer';
 import { updateLayerStack, supportsXRLayers } from '@/lib/xr-layers';
@@ -173,9 +174,11 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
   const [layers, setLayers] = React.useState<{
     background: XREquirectLayer | null;
     technique: XRQuadLayer | null;
+    webcam: XRQuadLayer | null;
   }>({
     background: null,
     technique: null,
+    webcam: null,
   });
 
   const { session } = useXR();
@@ -187,13 +190,14 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
     const layerArray = [
       layers.background,
       layers.technique,
+      layers.webcam,
     ].filter((layer): layer is XRLayer => layer !== null);
 
     if (layerArray.length > 0) {
       console.log('[VR SCENE] Updating layer stack with', layerArray.length, 'layers');
       updateLayerStack(session, layerArray);
     }
-  }, [session, layers.background, layers.technique]);
+  }, [session, layers.background, layers.technique, layers.webcam]);
 
   return (
     <>
@@ -288,8 +292,23 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         />
       )} */}
 
-      {/* BlazePose Mirror - RE-ENABLED */}
-      {showMirror && (
+      {/* Webcam Mirror - Hardware Accelerated XR Layer */}
+      {showMirror && supportsXRLayers() && (
+        <WebcamXRLayer
+          position={[0, 1.6, -2]}
+          rotation={[0, 0, 0]}
+          width={2.5}
+          height={3.0}
+          cameraDeviceId={cameraDeviceId}
+          onLayerCreated={(layer) => {
+            console.log('[VR SCENE] Webcam layer ready');
+            setLayers((prev) => ({ ...prev, webcam: layer }));
+          }}
+        />
+      )}
+
+      {/* Fallback: Regular AvatarMirror if XR Layers not supported */}
+      {showMirror && !supportsXRLayers() && (
         <AvatarMirror
           position={[0, 1.6, -2]}
           rotation={[0, 0, 0]}
