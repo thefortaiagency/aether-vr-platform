@@ -235,6 +235,18 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
     }
   }, [session, layers.background, layers.technique, layers.webcam]);
 
+  // Calculate positions for 6 videos in a circle
+  const radius = 4; // 4 meters from center
+  const videoHeight = 1.6; // Eye level
+  const techniqueVideos = [
+    { name: "Single Leg", angle: 0 },
+    { name: "Double Leg", angle: Math.PI / 3 },
+    { name: "Cradle", angle: (2 * Math.PI) / 3 },
+    { name: "Escape", angle: Math.PI },
+    { name: "Standup", angle: (4 * Math.PI) / 3 },
+    { name: "Switch", angle: (5 * Math.PI) / 3 },
+  ];
+
   return (
     <>
       {/* Good lighting for VR */}
@@ -245,6 +257,20 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
       {backgroundImageUrl && (
         <Gymnasium backgroundImageUrl={backgroundImageUrl} />
       )}
+
+      {/* Technique Videos in Circle Formation */}
+      {videoEnabled && techniqueVideos.map((video, index) => {
+        const x = Math.sin(video.angle) * radius;
+        const z = Math.cos(video.angle) * radius;
+        return (
+          <VideoTextureSimple
+            key={`technique-${index}`}
+            position={[x, videoHeight, -z]}
+            rotation={[0, -video.angle, 0]}
+            videoUrl="/videos/double-leg.mp4"
+          />
+        );
+      })}
     </>
   );
 }
