@@ -21,8 +21,8 @@ export function AvatarMirror({
   rotation = [0, 0, 0],
   cameraDeviceId
 }: AvatarMirrorProps) {
-  const meshRef = useRef<THREE.Mesh>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const materialRef = useRef<THREE.MeshBasicMaterial | null>(null);
 
   const detectorRef = useRef<poseDetection.PoseDetector | null>(null);
 
@@ -240,30 +240,22 @@ export function AvatarMirror({
     if (texture && video && video.readyState >= video.HAVE_CURRENT_DATA) {
       texture.needsUpdate = true; // CRITICAL for VR mode
 
-      // Deep instrumentation for debugging
-      if (session && meshRef.current) {
-        const mesh = meshRef.current;
-        const mat = mesh.material as THREE.MeshBasicMaterial;
+      if (materialRef.current && materialRef.current.map !== texture) {
+        console.warn('[AvatarMirror] ⚠️ Material map mismatch detected in XR – auto-repairing');
+        materialRef.current.map = texture;
+        materialRef.current.needsUpdate = true;
+      }
 
-        // Log detailed state (once every 60 frames to avoid spam)
-        if (Math.random() < 0.016) {
-          console.log('[AvatarMirror] VR Frame State:', {
-            textureUUID: texture.uuid,
-            textureImage: texture.image ? 'exists' : 'missing',
-            materialUUID: mat.uuid,
-            materialMap: mat.map ? mat.map.uuid : 'missing',
-            materialMapMatchesTexture: mat.map === texture,
-            videoPlaying: !video.paused,
-            videoReadyState: video.readyState
-          });
-        }
-
-        // Ensure material has correct texture reference
-        if (mat.map !== texture) {
-          console.warn('[AvatarMirror] Material texture mismatch! Reassigning...');
-          mat.map = texture;
-          mat.needsUpdate = true;
-        }
+      if (session && materialRef.current && Math.random() < 0.016) {
+        console.log('[AvatarMirror] VR Frame State:', {
+          textureUUID: texture.uuid,
+          textureImage: texture.image ? 'exists' : 'missing',
+          materialUUID: materialRef.current.uuid,
+          materialMap: materialRef.current.map ? materialRef.current.map.uuid : 'missing',
+          materialMapMatchesTexture: materialRef.current.map === texture,
+          videoPlaying: !video.paused,
+          videoReadyState: video.readyState
+        });
       }
     }
   });
@@ -290,9 +282,10 @@ export function AvatarMirror({
       </mesh>
 
       {/* Video mirror plane - R3F handles material cloning for XR stereo */}
-      <mesh ref={meshRef} scale={mirrorScale}>
+      <mesh scale={mirrorScale}>
         <planeGeometry args={[1, 1]} />
         <meshBasicMaterial
+          ref={materialRef}
           map={videoTexture}
           toneMapped={false}
           side={THREE.DoubleSide}
