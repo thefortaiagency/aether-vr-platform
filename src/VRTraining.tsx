@@ -18,7 +18,7 @@ function VRTraining() {
   const userName = urlParams.get('user') || 'Wrestler';
 
   const [showCoach, setShowCoach] = useState(true);
-  const [showTechnique, setShowTechnique] = useState(false); // OFF by default - mirror shows first
+  const [showTechnique, setShowTechnique] = useState(true); // Enable technique video by default
   const [showMirror, setShowMirror] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
@@ -169,20 +169,9 @@ function VRTraining() {
   };
 
   return (
-    <div className="relative w-full h-full">
-      {/* Full-screen background image */}
-      {backgroundImageUrl && (
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: `url(${backgroundImageUrl})`,
-            filter: 'brightness(0.9)'
-          }}
-        />
-      )}
-
-      {/* Full-screen VR Scene with transparent background */}
-      <div ref={sceneContainerRef} className="absolute inset-0">
+    <div className="relative w-full h-full" style={{ background: '#FFFFFF' }}>
+      {/* Full-screen VR Scene - background is rendered in 3D, not CSS */}
+      <div ref={sceneContainerRef} className="absolute inset-0" style={{ background: '#FFFFFF' }}>
         <VRScene
           activeExercise="stance"
           showCoach={showCoach}
@@ -209,7 +198,7 @@ function VRTraining() {
       </div>
 
       {/* Controls - Bottom Center */}
-      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-4 bg-black/70 backdrop-blur-md px-6 py-4 rounded-full border-2 border-white/50 shadow-2xl">
+      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-4 bg-black/30 px-6 py-4 rounded-full border-2 border-white/50 shadow-2xl">
         {/* Mic Toggle */}
         <Button
           onClick={() => setIsMuted(!isMuted)}

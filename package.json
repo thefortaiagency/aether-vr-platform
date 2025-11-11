@@ -9,7 +9,10 @@
     "build": "vite build",
     "build:check": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server:install": "cd server && npm install",
+    "server:dev": "cd server && npm run dev",
+    "dev:all": "npm run server:dev & npm run dev"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",

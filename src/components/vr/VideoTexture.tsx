@@ -54,7 +54,7 @@ export function VideoTexture({ position: initialPosition, rotation, videoUrl, ti
         // Set video source
         video.src = videoUrl;
 
-        // Create texture immediately
+        // Create texture but don't set it to state yet (wait for video to load)
         const texture = new THREE.VideoTexture(video);
         texture.minFilter = THREE.LinearFilter;
         texture.magFilter = THREE.LinearFilter;
@@ -62,9 +62,8 @@ export function VideoTexture({ position: initialPosition, rotation, videoUrl, ti
         texture.colorSpace = THREE.SRGBColorSpace; // Fix color space for VR
         texture.generateMipmaps = false; // Performance optimization
         textureRef.current = texture;
-        setVideoTexture(texture);
 
-        console.log('✅ Video texture created with sRGB color space');
+        console.log('✅ Video texture created with sRGB color space (waiting for video load)');
 
         // Event listeners
         video.onloadstart = () => {
@@ -80,6 +79,9 @@ export function VideoTexture({ position: initialPosition, rotation, videoUrl, ti
           setIsLoaded(true);
           if (textureRef.current) {
             textureRef.current.needsUpdate = true;
+            // Now it's safe to render the texture
+            setVideoTexture(textureRef.current);
+            console.log('✅ Video texture ready to render');
           }
         };
 
@@ -278,6 +280,14 @@ export function VideoTexture({ position: initialPosition, rotation, videoUrl, ti
   const baseWidth = 3.2;
   const baseHeight = 2;
 
+  // Don't render anything until video texture is ready
+  if (!videoTexture || !isLoaded) {
+    console.log('[VideoTexture] Skipping render - texture not ready. Loaded:', isLoaded, 'Texture:', !!videoTexture);
+    return null;
+  }
+
+  console.log('[VideoTexture] Rendering with texture ready');
+
   return (
     <group position={position} rotation={rotation3D} scale={[scale, scale, 1]}>
       {/* Video Screen */}
@@ -290,19 +300,11 @@ export function VideoTexture({ position: initialPosition, rotation, videoUrl, ti
         onClick={handleClick}
       >
         <planeGeometry args={[baseWidth, baseHeight]} />
-        {videoTexture ? (
-          <meshBasicMaterial
-            map={videoTexture}
-            toneMapped={false}
-            side={THREE.DoubleSide}
-          />
-        ) : (
-          <meshStandardMaterial
-            color={isDragging ? "#FFD700" : "#1a1a1a"}
-            emissive={isDragging ? "#FFD700" : "#444444"}
-            emissiveIntensity={isDragging ? 0.5 : 0.2}
-          />
-        )}
+        <meshBasicMaterial
+          map={videoTexture}
+          toneMapped={false}
+          side={THREE.DoubleSide}
+        />
       </mesh>
 
       {/* Title Label */}
