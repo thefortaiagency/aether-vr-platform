@@ -33,8 +33,9 @@ export function AvatarMirror({
   const mirrorPosition = position;
   const mirrorScale: [number, number, number] = [2.5, 3, 1]; // MUCH LARGER for VR visibility (2.5m wide x 3m tall)
 
-  // CRITICAL: Store texture in STATE, not ref, so R3F can properly track it and reinitialize material
+  // CRITICAL: Store both texture AND material in STATE for manual control
   const [canvasTexture, setCanvasTexture] = useState<THREE.CanvasTexture | null>(null);
+  const [mirrorMaterial, setMirrorMaterial] = useState<THREE.MeshBasicMaterial | null>(null);
 
   // Initialize webcam and pose detector (client-side only)
   useEffect(() => {
@@ -122,9 +123,19 @@ export function AvatarMirror({
         // Wait one more frame to ensure texture is uploaded to GPU
         await new Promise(resolve => requestAnimationFrame(resolve));
 
-        // NOW set texture in state - material will be created with fully ready texture
+        // CRITICAL: Create material MANUALLY with fully initialized texture
+        const material = new THREE.MeshBasicMaterial({
+          map: texture,
+          side: THREE.DoubleSide,
+          toneMapped: false,
+        });
+
+        console.log('[AvatarMirror] Material created manually with texture');
+
+        // NOW set both texture AND material in state
         setCanvasTexture(texture);
-        console.log('[AvatarMirror] ✅ Texture ready and set in state');
+        setMirrorMaterial(material);
+        console.log('[AvatarMirror] ✅ Texture and material ready');
 
         // Initialize TensorFlow backend with WebGPU fallback
         console.log('[AvatarMirror] Initializing TensorFlow backend...');
@@ -196,15 +207,19 @@ export function AvatarMirror({
     };
   }, [cameraDeviceId]); // Re-initialize when camera changes (NOT canvasTexture - that would cause loop)
 
-  // Cleanup texture on unmount
+  // Cleanup texture and material on unmount
   useEffect(() => {
     return () => {
       if (canvasTexture) {
         console.log('[AvatarMirror] Disposing texture on unmount');
         canvasTexture.dispose();
       }
+      if (mirrorMaterial) {
+        console.log('[AvatarMirror] Disposing material on unmount');
+        mirrorMaterial.dispose();
+      }
     };
-  }, [canvasTexture]);
+  }, [canvasTexture, mirrorMaterial]);
 
   // Render loop - throttled pose detection for VR performance
   useFrame(async () => {
@@ -270,21 +285,16 @@ export function AvatarMirror({
     }
   });
 
-  // Don't render anything until texture is ready
-  if (!canvasTexture) {
+  // Don't render anything until BOTH texture AND material are ready
+  if (!canvasTexture || !mirrorMaterial) {
     return null;
   }
 
   return (
     <group position={mirrorPosition} rotation={rotation}>
-      {/* Main mirror surface */}
-      <mesh ref={meshRef} scale={mirrorScale}>
+      {/* Main mirror surface with MANUALLY created material */}
+      <mesh ref={meshRef} scale={mirrorScale} material={mirrorMaterial}>
         <planeGeometry args={[1, 1]} />
-        <meshBasicMaterial
-          map={canvasTexture}
-          side={THREE.DoubleSide}
-          toneMapped={false}
-        />
       </mesh>
 
       {/* BRIGHT NEON FRAME - Unmissable in VR */}
