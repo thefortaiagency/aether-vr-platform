@@ -241,22 +241,18 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
       <ambientLight intensity={1.0} />
       <directionalLight position={[0, 10, 0]} intensity={1.0} />
 
-      {/* Floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-        <planeGeometry args={[100, 100]} />
-        <meshBasicMaterial color={0x1a1a2e} />
-      </mesh>
-
       {/* 360° Wrestling Room Background */}
       {backgroundImageUrl && (
         <Gymnasium backgroundImageUrl={backgroundImageUrl} />
       )}
 
-      {/* Test box to confirm scene is working */}
-      <mesh position={[0, 1.6, -2]}>
-        <boxGeometry args={[0.5, 0.5, 0.5]} />
-        <meshStandardMaterial color="red" />
-      </mesh>
+      {/* Floor - only if no background */}
+      {!backgroundImageUrl && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+          <planeGeometry args={[100, 100]} />
+          <meshBasicMaterial color={0x1a1a2e} />
+        </mesh>
+      )}
     </>
   );
 }
@@ -289,11 +285,10 @@ export default function VRSceneClient(props: VRSceneProps) {
         camera={{ position: [0, 1.6, 0.1], fov: 75, near: 0.01, far: 1000 }}
         gl={{
           antialias: true,
-          alpha: false,
+          alpha: true,
           powerPreference: 'high-performance',
         }}
         style={{
-          background: '#1a1a2e',
           width: '100%',
           height: '100%',
           display: 'block'
@@ -303,9 +298,10 @@ export default function VRSceneClient(props: VRSceneProps) {
           console.log('📐 Canvas size:', state.gl.domElement.width, 'x', state.gl.domElement.height);
           console.log('📐 Viewport:', state.viewport.width, 'x', state.viewport.height);
 
-          // Force camera to look forward at the red box
-          state.camera.lookAt(0, 1.6, -2);
-          console.log('📷 Camera looking at red box position [0, 1.6, -2]');
+          // Camera starts at [0, 1.6, 0.1] looking forward
+          // User can look around with mouse/VR to see 360° environment
+          state.camera.lookAt(0, 1.6, -5);
+          console.log('📷 Camera looking forward into 360° environment');
         }}
       >
         {/* Wrap scene content with XR component and pass the store */}
