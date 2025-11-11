@@ -111,17 +111,21 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
   }
 
   console.log('[GYMNASIUM] 🎬 Rendering background sphere at [0, 0, 0], radius 50');
+  console.log('[GYMNASIUM] 🔍 Texture details:', {
+    width: texture.image?.width,
+    height: texture.image?.height,
+    format: texture.format,
+    colorSpace: texture.colorSpace
+  });
 
   try {
     return (
       <mesh position={[0, 0, 0]}>
-        <sphereGeometry args={[50, 32, 32]} />
+        <sphereGeometry args={[50, 60, 40]} />
         <meshBasicMaterial
           map={texture}
-          color={0xffffff}
           side={THREE.BackSide}
           toneMapped={false}
-          transparent={false}
         />
       </mesh>
     );
@@ -295,10 +299,10 @@ export default function VRSceneClient(props: VRSceneProps) {
         camera={{ position: [0, 1.6, 0.1], fov: 75, near: 0.01, far: 1000 }}
         gl={{
           antialias: true,
-          alpha: true,
+          alpha: false,
           powerPreference: 'high-performance',
         }}
-        style={{ background: 'transparent' }}
+        style={{ background: '#1a1a2e' }}
         onCreated={(state) => {
           console.log('✅ Canvas created, WebGL ready');
         }}
