@@ -189,7 +189,13 @@ interface TechniqueCardProps extends TechniqueCardState {
   onRotationChange: (rotation: [number, number, number]) => void;
 }
 
-type ControlButtonType = 'plus' | 'minus' | 'rotate-left' | 'rotate-right';
+type ControlButtonType =
+  | 'plus'
+  | 'minus'
+  | 'rotate-left'
+  | 'rotate-right'
+  | 'play'
+  | 'pause';
 
 function ControlIcon({ type }: { type: ControlButtonType }) {
   switch (type) {
@@ -237,6 +243,28 @@ function ControlIcon({ type }: { type: ControlButtonType }) {
           </mesh>
           <mesh raycast={() => null} position={[0.065, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
             <coneGeometry args={[0.05, 0.11, 24]} />
+            <meshStandardMaterial color="#111217" metalness={0.25} roughness={0.4} />
+          </mesh>
+        </group>
+      );
+    case 'play':
+      return (
+        <group position={[0, 0.11, 0]}>
+          <mesh raycast={() => null} rotation={[0, 0, Math.PI / 2]}>
+            <coneGeometry args={[0.11, 0.16, 24]} />
+            <meshStandardMaterial color="#111217" metalness={0.25} roughness={0.4} />
+          </mesh>
+        </group>
+      );
+    case 'pause':
+      return (
+        <group position={[0, 0.11, 0]}>
+          <mesh raycast={() => null} position={[-0.03, 0, 0]}>
+            <boxGeometry args={[0.045, 0.16, 0.04]} />
+            <meshStandardMaterial color="#111217" metalness={0.25} roughness={0.4} />
+          </mesh>
+          <mesh raycast={() => null} position={[0.03, 0, 0]}>
+            <boxGeometry args={[0.045, 0.16, 0.04]} />
             <meshStandardMaterial color="#111217" metalness={0.25} roughness={0.4} />
           </mesh>
         </group>
@@ -318,6 +346,7 @@ function useTechniqueVideoTexture(videoUrl: string) {
   const lastPlayAttemptRef = React.useRef(0);
   const [texture, setTexture] = React.useState<THREE.VideoTexture | null>(null);
   const [isReady, setIsReady] = React.useState(false);
+  const [isPlaying, setIsPlaying] = React.useState(false);
   const [dimensions, setDimensions] = React.useState<{ width: number; height: number }>({
     width: 16,
     height: 9,
@@ -338,6 +367,12 @@ function useTechniqueVideoTexture(videoUrl: string) {
       return videoUrl;
     }
   }, [videoUrl]);
+
+  const markTextureDirty = React.useCallback(() => {
+    if (textureRef.current) {
+      textureRef.current.needsUpdate = true;
+    }
+  }, []);
 
   const requestPlay = React.useCallback(() => {
     const video = videoRef.current;
@@ -364,9 +399,36 @@ function useTechniqueVideoTexture(videoUrl: string) {
     }
   }, []);
 
+  const requestPause = React.useCallback(() => {
+    const video = videoRef.current;
+    if (!video) {
+      return;
+    }
+
+    if (video.paused || video.ended) {
+      return;
+    }
+
+    video.pause();
+  }, []);
+
+  const togglePlayback = React.useCallback(() => {
+    const video = videoRef.current;
+    if (!video) {
+      return;
+    }
+
+    if (video.paused || video.ended) {
+      requestPlay();
+    } else {
+      requestPause();
+    }
+  }, [requestPause, requestPlay]);
+
   React.useEffect(() => {
     setIsReady(false);
     setTexture(null);
+    setIsPlaying(false);
 
     const video = document.createElement('video');
     video.crossOrigin = 'anonymous';
@@ -388,6 +450,7 @@ function useTechniqueVideoTexture(videoUrl: string) {
     video.style.height = '1px';
     video.style.opacity = '0';
     video.style.pointerEvents = 'none';
+    video.dataset.techniqueVideo = resolvedUrl;
     document.body.appendChild(video);
 
     const texture = new THREE.VideoTexture(video);
@@ -428,6 +491,12 @@ function useTechniqueVideoTexture(videoUrl: string) {
 
     const handlePlay = () => {
       setIsReady(true);
+      setIsPlaying(true);
+      markTextureDirty();
+    };
+
+    const handlePause = () => {
+      setIsPlaying(false);
       markTextureDirty();
     };
 
@@ -444,6 +513,7 @@ function useTechniqueVideoTexture(videoUrl: string) {
     video.addEventListener('loadeddata', handleLoadedData);
     video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('playing', handlePlay);
+    video.addEventListener('pause', handlePause);
     video.addEventListener('error', handleError);
 
     video.load();
@@ -454,6 +524,7 @@ function useTechniqueVideoTexture(videoUrl: string) {
       video.removeEventListener('loadeddata', handleLoadedData);
       video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('playing', handlePlay);
+      video.removeEventListener('pause', handlePause);
       video.removeEventListener('error', handleError);
 
       if (video.parentNode) {
@@ -464,8 +535,9 @@ function useTechniqueVideoTexture(videoUrl: string) {
       videoRef.current = null;
       textureRef.current = null;
       lastPlayAttemptRef.current = 0;
+      setIsPlaying(false);
     };
-  }, [resolvedUrl]);
+  }, [markTextureDirty, resolvedUrl]);
 
   useFrame(() => {
     const video = videoRef.current;
@@ -483,8 +555,11 @@ function useTechniqueVideoTexture(videoUrl: string) {
   return {
     texture,
     isReady,
+    isPlaying,
     dimensions,
-    resume: requestPlay,
+    play: requestPlay,
+    pause: requestPause,
+    toggle: togglePlayback,
   };
 }
 
@@ -503,12 +578,14 @@ function TechniqueCard({
   const pointerIdRef = React.useRef<number | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
   const [isHovered, setIsHovered] = React.useState(false);
+  const didDragRef = React.useRef(false);
 
   React.useEffect(() => {
     dragPlaneRef.current.constant = -position[1];
   }, [position[1]]);
 
-  const { texture, isReady, dimensions, resume } = useTechniqueVideoTexture(videoUrl);
+  const { texture, isReady, isPlaying, dimensions, play, pause, toggle } =
+    useTechniqueVideoTexture(videoUrl);
 
   const videoAspect = React.useMemo(() => {
     if (!dimensions.width || !dimensions.height) {
@@ -559,8 +636,8 @@ function TechniqueCard({
     (event: any) => {
       event.stopPropagation();
       setIsDragging(true);
+      didDragRef.current = false;
       setIsHovered(true);
-      resume();
 
       const pointerId =
         typeof event.pointerId === 'number'
@@ -580,7 +657,7 @@ function TechniqueCard({
         }
       }
     },
-    [resume]
+    []
   );
 
   const endDrag = React.useCallback(
@@ -596,10 +673,14 @@ function TechniqueCard({
   const handlePointerUp = React.useCallback(
     (event: any) => {
       event.stopPropagation();
+      const didDrag = didDragRef.current;
       endDrag(event);
-      resume();
+
+      if (!didDrag) {
+        toggle();
+      }
     },
-    [endDrag, resume]
+    [endDrag, toggle]
   );
 
   const handlePointerMove = React.useCallback(
@@ -612,6 +693,7 @@ function TechniqueCard({
       const world = getWorldPoint(event);
       if (world) {
         onPositionChange([world.x, position[1], world.z]);
+        didDragRef.current = true;
       }
     },
     [getWorldPoint, isDragging, onPositionChange, position]
@@ -637,9 +719,8 @@ function TechniqueCard({
   const adjustScale = React.useCallback(
     (delta: number) => {
       onScaleChange(clamp(scale + delta, MIN_CARD_SCALE, MAX_CARD_SCALE));
-      resume();
     },
-    [onScaleChange, resume, scale]
+    [onScaleChange, scale]
   );
 
   const handleWheel = React.useCallback(
@@ -648,9 +729,8 @@ function TechniqueCard({
       const deltaY = event.deltaY ?? 0;
       if (!deltaY) return;
       adjustScale(deltaY < 0 ? 0.12 : -0.12);
-      resume();
     },
-    [adjustScale, resume]
+    [adjustScale]
   );
 
   const handleDoubleClick = React.useCallback(
@@ -661,17 +741,15 @@ function TechniqueCard({
           ? clamp(scale * 1.6, MIN_CARD_SCALE, MAX_CARD_SCALE)
           : clamp(scale * 0.7, MIN_CARD_SCALE, MAX_CARD_SCALE);
       onScaleChange(nextScale);
-      resume();
     },
-    [onScaleChange, resume, scale]
+    [onScaleChange, scale]
   );
 
   const rotateBy = React.useCallback(
     (radians: number) => {
       onRotationChange([rotation[0], rotation[1] + radians, rotation[2]]);
-      resume();
     },
-    [onRotationChange, resume, rotation]
+    [onRotationChange, rotation]
   );
 
   const pointerHandlers = React.useMemo(
@@ -701,6 +779,7 @@ function TechniqueCard({
   const controlOffsetX = frameWidth / 2 + 0.32;
   const controlOffsetY = frameHeight / 2 + 0.32;
   const controlZ = CARD_DEPTH / 2 + 0.12;
+  const playbackOffsetY = controlOffsetY + 0.32;
 
   return (
     <group ref={cardRef} position={position} rotation={rotation} scale={scale}>
@@ -744,6 +823,17 @@ function TechniqueCard({
           />
         </mesh>
 
+        <ControlButton
+          position={[0, playbackOffsetY, controlZ]}
+          type={isPlaying ? 'pause' : 'play'}
+          onActivate={() => {
+            if (isPlaying) {
+              pause();
+            } else {
+              play();
+            }
+          }}
+        />
         <ControlButton
           position={[-controlOffsetX, controlOffsetY, controlZ]}
           type="rotate-left"
