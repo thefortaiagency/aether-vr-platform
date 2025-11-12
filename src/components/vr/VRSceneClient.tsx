@@ -572,7 +572,8 @@ function TechniqueCard({
 }: TechniqueCardProps) {
   const cardRef = React.useRef<THREE.Group>(null);
   const materialRef = React.useRef<THREE.MeshBasicMaterial>(null);
-  const dragPlaneRef = React.useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), -position[1]));
+  // Drag plane perpendicular to Z axis to allow full 3D movement (up/down/left/right)
+  const dragPlaneRef = React.useRef(new THREE.Plane(new THREE.Vector3(0, 0, 1), -position[2]));
   const intersectionPoint = React.useMemo(() => new THREE.Vector3(), []);
   const pointerIdRef = React.useRef<number | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
@@ -580,8 +581,8 @@ function TechniqueCard({
   const didDragRef = React.useRef(false);
 
   React.useEffect(() => {
-    dragPlaneRef.current.constant = -position[1];
-  }, [position[1]]);
+    dragPlaneRef.current.constant = -position[2];
+  }, [position[2]]);
 
   const { texture, isReady, isPlaying, dimensions, play, pause, toggle } =
     useTechniqueVideoTexture(videoUrl);
@@ -691,7 +692,8 @@ function TechniqueCard({
       event.stopPropagation();
       const world = getWorldPoint(event);
       if (world) {
-        onPositionChange([world.x, position[1], world.z]);
+        // Allow full 3D movement - cards can move up/down/left/right/forward/back
+        onPositionChange([world.x, world.y, world.z]);
         didDragRef.current = true;
       }
     },
@@ -879,8 +881,8 @@ function CoachImage() {
   const texture = useTexture('/reecehumphrey.png');
 
   return (
-    <mesh position={[0, 0.3, CARD_DEPTH / 2 + 0.11]}>
-      <planeGeometry args={[1.2, 1.2]} />
+    <mesh position={[0, 0.2, CARD_DEPTH / 2 + 0.11]}>
+      <planeGeometry args={[2.5, 1.0]} />
       <meshBasicMaterial map={texture} transparent={true} side={THREE.DoubleSide} />
     </mesh>
   );
@@ -1140,16 +1142,16 @@ const TECHNIQUE_CARD_IDS = [
 ] as const;
 
 const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARD_IDS.map((id, index) => {
-  // 3x2 grid layout - smaller initial size
+  // 3x2 grid layout - extra small initial size to prevent overlap
   const row = Math.floor(index / 3); // 0 or 1 (top or bottom row)
   const col = index % 3; // 0, 1, or 2 (left, center, right)
 
-  const xSpacing = 2.2;
-  const ySpacing = 1.8;
+  const xSpacing = 2.8;
+  const ySpacing = 2.2;
   const zDistance = -5;
 
   // Center the grid horizontally
-  const x = (col - 1) * xSpacing; // -2.2, 0, 2.2
+  const x = (col - 1) * xSpacing; // -2.8, 0, 2.8
   const y = CARD_BASE_HEIGHT + 1.2 - (row * ySpacing); // top row higher, bottom row lower
   const z = zDistance;
 
@@ -1157,7 +1159,7 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARD_IDS.map((id,
     id,
     position: [x, y, z],
     rotation: [0, 0, 0], // All facing forward
-    scale: 1.0, // Smaller initial scale - users can make them bigger
+    scale: 0.75, // Extra small initial scale - users can make them bigger
     videoUrl: '/video/latora30.mp4',
   };
 });
