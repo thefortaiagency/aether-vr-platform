@@ -18,7 +18,7 @@ function VRTraining() {
   const userName = urlParams.get('user') || 'Wrestler';
 
   const [showCoach, setShowCoach] = useState(true);
-  const [showTechnique, setShowTechnique] = useState(true); // Enable technique videos by default
+  const [showTechnique, setShowTechnique] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [recording, setRecording] = useState(false);
