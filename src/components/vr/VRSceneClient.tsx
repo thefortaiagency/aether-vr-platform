@@ -6,6 +6,7 @@ import { OrbitControls, RoundedBox } from '@react-three/drei';
 import { XR, createXRStore, useXR } from '@react-three/xr';
 import * as THREE from 'three';
 import { VRControllerScreenshot } from './VRControllerScreenshot';
+import { VideoTextureSimple } from './VideoTextureSimple';
 
 const CARD_HEIGHT = 1.35;
 const CARD_DEPTH = 0.045;
@@ -691,30 +692,20 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = [
 ];
 
 // Main VR Scene Content
-function VRSceneContent({ backgroundImageUrl, onScreenshot, onBackgroundReady }: VRSceneProps) {
-  const [cards, setCards] = React.useState<TechniqueCardState[]>(() => TECHNIQUE_CARD_PRESETS);
+function VRSceneContent({ backgroundImageUrl, videoEnabled, onScreenshot, onBackgroundReady }: VRSceneProps) {
   const { isPresenting } = useXR();
 
-  const updateCardPosition = React.useCallback((id: string, position: [number, number, number]) => {
-    setCards((prev) =>
-      prev.map((card) => (card.id === id ? { ...card, position } : card))
-    );
-  }, []);
-
-  const updateCardScale = React.useCallback((id: string, scale: number) => {
-    setCards((prev) =>
-      prev.map((card) => (card.id === id ? { ...card, scale } : card))
-    );
-  }, []);
-
-  const updateCardRotation = React.useCallback(
-    (id: string, rotation: [number, number, number]) => {
-      setCards((prev) =>
-        prev.map((card) => (card.id === id ? { ...card, rotation } : card))
-      );
-    },
-    []
-  );
+  // Technique videos configuration - 6 videos in circle
+  const radius = 4; // 4 meters from center
+  const videoHeight = 1.6; // Eye level
+  const techniqueVideos = [
+    { name: "Single Leg", angle: 0 },
+    { name: "Double Leg", angle: Math.PI / 3 },
+    { name: "Cradle", angle: (2 * Math.PI) / 3 },
+    { name: "Escape", angle: Math.PI },
+    { name: "Standup", angle: (4 * Math.PI) / 3 },
+    { name: "Switch", angle: (5 * Math.PI) / 3 },
+  ];
 
   return (
     <>
@@ -738,17 +729,20 @@ function VRSceneContent({ backgroundImageUrl, onScreenshot, onBackgroundReady }:
         />
       )}
 
-      <group position={[0, 1.35, -3]}>
-        {cards.map((card) => (
-          <TechniqueCard
-            key={card.id}
-            {...card}
-            onPositionChange={(next) => updateCardPosition(card.id, next)}
-            onScaleChange={(next) => updateCardScale(card.id, next)}
-            onRotationChange={(next) => updateCardRotation(card.id, next)}
+      {/* 6 Technique Videos in Circle Formation - Movable/Resizable */}
+      {videoEnabled && techniqueVideos.map((video, index) => {
+        const x = Math.sin(video.angle) * radius;
+        const z = Math.cos(video.angle) * radius;
+        return (
+          <VideoTextureSimple
+            key={`technique-${index}`}
+            position={[x, videoHeight, -z]}
+            rotation={[0, -video.angle, 0]}
+            videoUrl="/video/latora30.mp4"
+            title={video.name}
           />
-        ))}
-      </group>
+        );
+      })}
     </>
   );
 }
