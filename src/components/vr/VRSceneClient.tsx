@@ -322,7 +322,6 @@ function useTechniqueVideoTexture(videoUrl: string) {
     width: 16,
     height: 9,
   });
-  const { isPresenting } = useXR();
 
   const resolvedUrl = React.useMemo(() => {
     if (typeof window === 'undefined') {
@@ -340,15 +339,11 @@ function useTechniqueVideoTexture(videoUrl: string) {
     }
   }, [videoUrl]);
 
-  const ensurePlaying = React.useCallback(() => {
+  const requestPlay = React.useCallback(() => {
     const video = videoRef.current;
     if (!video) {
       return;
     }
-
-    video.muted = true;
-    video.setAttribute('playsinline', 'true');
-    video.setAttribute('webkit-playsinline', 'true');
 
     if (!video.paused && !video.ended) {
       return;
@@ -364,7 +359,7 @@ function useTechniqueVideoTexture(videoUrl: string) {
     const playResult = video.play();
     if (playResult && typeof playResult.catch === 'function') {
       playResult.catch((error) => {
-        console.warn('[TechniqueCard] Autoplay blocked, waiting for user gesture', error);
+        console.warn('[TechniqueCard] Video play request interrupted', error);
       });
     }
   }, []);
@@ -377,14 +372,14 @@ function useTechniqueVideoTexture(videoUrl: string) {
     video.crossOrigin = 'anonymous';
     video.setAttribute('crossorigin', 'anonymous');
     video.loop = true;
-    video.muted = true;
-    video.defaultMuted = true;
-    video.autoplay = true;
+    video.muted = false;
+    video.defaultMuted = false;
+    video.autoplay = false;
     video.playsInline = true;
     video.setAttribute('playsinline', 'true');
     video.setAttribute('webkit-playsinline', 'true');
-    video.setAttribute('muted', 'true');
-    video.setAttribute('autoplay', 'true');
+    video.removeAttribute('muted');
+    video.removeAttribute('autoplay');
     video.setAttribute('loop', 'true');
     video.preload = 'auto';
     video.src = resolvedUrl;
@@ -412,21 +407,28 @@ function useTechniqueVideoTexture(videoUrl: string) {
       }
     };
 
+    const markTextureDirty = () => {
+      if (textureRef.current) {
+        textureRef.current.needsUpdate = true;
+      }
+    };
+
     const handleLoadedData = () => {
       updateDimensions();
       if (video.readyState >= 2) {
         setIsReady(true);
-        ensurePlaying();
+        markTextureDirty();
       }
     };
 
     const handleCanPlay = () => {
       setIsReady(true);
-      ensurePlaying();
+      markTextureDirty();
     };
 
     const handlePlay = () => {
       setIsReady(true);
+      markTextureDirty();
     };
 
     const handleError = () => {
@@ -438,37 +440,13 @@ function useTechniqueVideoTexture(videoUrl: string) {
       });
     };
 
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        ensurePlaying();
-      }
-    };
-
-    const handlePauseLike = () => {
-      if (video.readyState >= 2) {
-        ensurePlaying();
-      }
-    };
-
     video.addEventListener('loadedmetadata', updateDimensions);
     video.addEventListener('loadeddata', handleLoadedData);
     video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('playing', handlePlay);
-    video.addEventListener('pause', handlePauseLike);
-    video.addEventListener('ended', handlePauseLike);
-    video.addEventListener('suspend', handlePauseLike);
-    video.addEventListener('stalled', handlePauseLike);
     video.addEventListener('error', handleError);
 
-    const pointerListener = () => ensurePlaying();
-
-    window.addEventListener('pointerdown', pointerListener, { passive: true });
-    window.addEventListener('pointerup', pointerListener, { passive: true });
-    window.addEventListener('keydown', pointerListener, { passive: true });
-    document.addEventListener('visibilitychange', handleVisibility);
-
     video.load();
-    ensurePlaying();
 
     return () => {
       video.pause();
@@ -476,16 +454,7 @@ function useTechniqueVideoTexture(videoUrl: string) {
       video.removeEventListener('loadeddata', handleLoadedData);
       video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('playing', handlePlay);
-      video.removeEventListener('pause', handlePauseLike);
-      video.removeEventListener('ended', handlePauseLike);
-      video.removeEventListener('suspend', handlePauseLike);
-      video.removeEventListener('stalled', handlePauseLike);
       video.removeEventListener('error', handleError);
-
-      window.removeEventListener('pointerdown', pointerListener);
-      window.removeEventListener('pointerup', pointerListener);
-      window.removeEventListener('keydown', pointerListener);
-      document.removeEventListener('visibilitychange', handleVisibility);
 
       if (video.parentNode) {
         video.parentNode.removeChild(video);
@@ -496,13 +465,7 @@ function useTechniqueVideoTexture(videoUrl: string) {
       textureRef.current = null;
       lastPlayAttemptRef.current = 0;
     };
-  }, [ensurePlaying, resolvedUrl]);
-
-  React.useEffect(() => {
-    if (isPresenting) {
-      ensurePlaying();
-    }
-  }, [ensurePlaying, isPresenting]);
+  }, [resolvedUrl]);
 
   useFrame(() => {
     const video = videoRef.current;
@@ -512,22 +475,16 @@ function useTechniqueVideoTexture(videoUrl: string) {
       return;
     }
 
-    if (video.readyState >= 2 && (video.paused || video.ended)) {
-      const now = Date.now();
-      if (now - lastPlayAttemptRef.current > 250) {
-        lastPlayAttemptRef.current = now;
-        ensurePlaying();
-      }
+    if (video.readyState >= 2 && !video.paused && !video.ended) {
+      texture.needsUpdate = true;
     }
-
-    texture.needsUpdate = true;
   });
 
   return {
     texture,
     isReady,
     dimensions,
-    resume: ensurePlaying,
+    resume: requestPlay,
   };
 }
 
