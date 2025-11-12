@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, RoundedBox, Text } from '@react-three/drei';
+import { OrbitControls, RoundedBox, Text, useTexture } from '@react-three/drei';
 import { XR, createXRStore, useXR, Interactive } from '@react-three/xr';
 import * as THREE from 'three';
 import { VRControllerScreenshot } from './VRControllerScreenshot';
@@ -874,6 +874,18 @@ function TechniqueCard({
   );
 }
 
+// Coach Image Component
+function CoachImage() {
+  const texture = useTexture('/reecehumphrey.png');
+
+  return (
+    <mesh position={[0, 0.3, CARD_DEPTH / 2 + 0.11]}>
+      <planeGeometry args={[1.2, 1.2]} />
+      <meshBasicMaterial map={texture} transparent={true} side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
 // Coach Andy Chatbot Card - Voice-activated AI coach
 function CoachChatCard() {
   const [coachResponse, setCoachResponse] = React.useState("Hey wrestler! Ask me anything about technique.");
@@ -1048,49 +1060,13 @@ function CoachChatCard() {
         COACH ANDY
       </Text>
 
-      {/* Coach Andy Hologram */}
-      <group position={[0, 0.2, CARD_DEPTH / 2 + 0.11]}>
-        {/* Hologram figure - simplified coach silhouette */}
-        <mesh position={[0, 0, 0]}>
-          {/* Head */}
-          <sphereGeometry args={[0.15, 16, 16]} />
-          <meshStandardMaterial
-            color="#00ffff"
-            transparent={true}
-            opacity={0.3}
-            emissive="#00cccc"
-            emissiveIntensity={0.8}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-        <mesh position={[0, -0.3, 0]}>
-          {/* Body */}
-          <boxGeometry args={[0.25, 0.4, 0.15]} />
-          <meshStandardMaterial
-            color="#00ffff"
-            transparent={true}
-            opacity={0.25}
-            emissive="#00cccc"
-            emissiveIntensity={0.7}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-        {/* Hologram scan lines effect */}
-        <mesh position={[0, 0, 0.01]}>
-          <planeGeometry args={[0.6, 0.8]} />
-          <meshBasicMaterial
-            color="#00ffff"
-            transparent={true}
-            opacity={0.1}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-      </group>
+      {/* Coach Andy Image */}
+      <CoachImage />
 
-      {/* Coach response text - overlaying hologram */}
+      {/* Coach response text - below image */}
       <Text
-        position={[0, -0.3, CARD_DEPTH / 2 + 0.13]}
-        fontSize={0.12}
+        position={[0, -0.5, CARD_DEPTH / 2 + 0.12]}
+        fontSize={0.11}
         color="#ffffff"
         anchorX="center"
         anchorY="middle"
@@ -1164,25 +1140,24 @@ const TECHNIQUE_CARD_IDS = [
 ] as const;
 
 const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARD_IDS.map((id, index) => {
-  // Wide arc layout - all at same height, spread horizontally
-  const radius = 8; // Distance from center
-  const totalCards = TECHNIQUE_CARD_IDS.length;
-  const arcSpan = Math.PI * 0.8; // 144 degrees arc
-  const startAngle = -arcSpan / 2;
-  const angle = startAngle + (arcSpan / (totalCards - 1)) * index;
+  // 3x2 grid layout - smaller initial size
+  const row = Math.floor(index / 3); // 0 or 1 (top or bottom row)
+  const col = index % 3; // 0, 1, or 2 (left, center, right)
 
-  const x = Math.sin(angle) * radius;
-  const z = -Math.cos(angle) * radius;
-  const y = CARD_BASE_HEIGHT + 1.5; // Eye level
+  const xSpacing = 2.2;
+  const ySpacing = 1.8;
+  const zDistance = -5;
 
-  // Rotate cards to face center
-  const rotationY = angle;
+  // Center the grid horizontally
+  const x = (col - 1) * xSpacing; // -2.2, 0, 2.2
+  const y = CARD_BASE_HEIGHT + 1.2 - (row * ySpacing); // top row higher, bottom row lower
+  const z = zDistance;
 
   return {
     id,
     position: [x, y, z],
-    rotation: [0, rotationY, 0],
-    scale: 1.5,
+    rotation: [0, 0, 0], // All facing forward
+    scale: 1.0, // Smaller initial scale - users can make them bigger
     videoUrl: '/video/latora30.mp4',
   };
 });
