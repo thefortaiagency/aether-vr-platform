@@ -307,6 +307,10 @@ function ControlButton({
     setHovered(false);
   }, []);
 
+  const handlePointerUp = React.useCallback((event: any) => {
+    event.stopPropagation();
+  }, []);
+
   return (
     <group position={position}>
       <Interactive
@@ -318,6 +322,7 @@ function ControlButton({
         <group>
           <mesh
             onPointerDown={handlePointerDown}
+            onPointerUp={handlePointerUp}
             onPointerOver={handlePointerOver}
             onPointerOut={handlePointerOut}
             onPointerCancel={handlePointerOut}
@@ -415,16 +420,26 @@ function useTechniqueVideoTexture(videoUrl: string) {
 
   const requestPause = React.useCallback(() => {
     const video = videoRef.current;
+    console.log('[VIDEO DEBUG] 🛑 requestPause called', {
+      url: videoUrl,
+      hasVideo: !!video,
+      videoPaused: video?.paused,
+      videoEnded: video?.ended,
+      stack: new Error().stack
+    });
+
     if (!video) {
       return;
     }
 
     if (video.paused || video.ended) {
+      console.log('[VIDEO DEBUG] ⚠️ Video already paused/ended, skipping');
       return;
     }
 
+    console.log('[VIDEO DEBUG] 🚨 Calling video.pause()');
     video.pause();
-  }, []);
+  }, [videoUrl]);
 
   const togglePlayback = React.useCallback(() => {
     const video = videoRef.current;
@@ -532,7 +547,17 @@ function useTechniqueVideoTexture(videoUrl: string) {
     };
 
     const handlePause = () => {
-      console.log('[VIDEO DEBUG] ⏸️ Video paused', { url: resolvedUrl });
+      console.log('[VIDEO DEBUG] ⏸️ Video paused', {
+        url: resolvedUrl,
+        currentTime: video.currentTime,
+        readyState: video.readyState,
+        muted: video.muted,
+        paused: video.paused,
+        ended: video.ended,
+        error: video.error,
+        networkState: video.networkState,
+        stack: new Error().stack
+      });
       setIsPlaying(false);
       markTextureDirty();
     };
