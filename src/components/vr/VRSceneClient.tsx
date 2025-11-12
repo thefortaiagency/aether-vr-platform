@@ -381,63 +381,24 @@ function useTechniqueVideoTexture(videoUrl: string) {
 
   const requestPlay = React.useCallback(() => {
     const video = videoRef.current;
-    console.log('[VIDEO DEBUG] 🎮 requestPlay called', {
-      url: videoUrl,
-      hasVideo: !!video,
-      videoPaused: video?.paused,
-      videoEnded: video?.ended
-    });
-
-    if (!video) {
-      return;
-    }
-
-    if (!video.paused && !video.ended) {
-      console.log('[VIDEO DEBUG] ⚠️ Video already playing, skipping');
+    if (!video || (!video.paused && !video.ended)) {
       return;
     }
 
     const attemptTime = Date.now();
     if (attemptTime - lastPlayAttemptRef.current < 250) {
-      console.log('[VIDEO DEBUG] ⚠️ Play throttled (< 250ms since last attempt)');
       return;
     }
 
     lastPlayAttemptRef.current = attemptTime;
-
-    console.log('[VIDEO DEBUG] 🚀 Calling video.play()');
-    const playResult = video.play();
-    if (playResult && typeof playResult.catch === 'function') {
-      playResult
-        .then(() => {
-          console.log('[VIDEO DEBUG] ✅ video.play() succeeded');
-        })
-        .catch((error) => {
-          console.warn('[VIDEO DEBUG] ❌ video.play() failed:', error);
-        });
-    }
+    video.play()?.catch(() => {});
   }, [videoUrl]);
 
   const requestPause = React.useCallback(() => {
     const video = videoRef.current;
-    console.log('[VIDEO DEBUG] 🛑 requestPause called', {
-      url: videoUrl,
-      hasVideo: !!video,
-      videoPaused: video?.paused,
-      videoEnded: video?.ended,
-      stack: new Error().stack
-    });
-
-    if (!video) {
+    if (!video || video.paused || video.ended) {
       return;
     }
-
-    if (video.paused || video.ended) {
-      console.log('[VIDEO DEBUG] ⚠️ Video already paused/ended, skipping');
-      return;
-    }
-
-    console.log('[VIDEO DEBUG] 🚨 Calling video.pause()');
     video.pause();
   }, [videoUrl]);
 
@@ -486,12 +447,6 @@ function useTechniqueVideoTexture(videoUrl: string) {
     texture.magFilter = THREE.LinearFilter;
     texture.generateMipmaps = false;
 
-    console.log('[VIDEO DEBUG] 🎬 Created video texture', {
-      url: resolvedUrl,
-      textureUuid: texture.uuid,
-      videoElement: video
-    });
-
     videoRef.current = video;
     textureRef.current = texture;
     setTexture(texture);
@@ -512,15 +467,6 @@ function useTechniqueVideoTexture(videoUrl: string) {
     const handleLoadedData = () => {
       updateDimensions();
       if (video.readyState >= 2) {
-        console.log('[VIDEO DEBUG] ✅ Video loaded data', {
-          url: resolvedUrl,
-          readyState: video.readyState,
-          duration: video.duration,
-          videoWidth: video.videoWidth,
-          videoHeight: video.videoHeight,
-          paused: video.paused
-        });
-
         // iOS/WebKit warmup: force GPU texture update
         const warmup = async () => {
           try {
@@ -530,63 +476,34 @@ function useTechniqueVideoTexture(videoUrl: string) {
               video.currentTime = 0;
               setIsReady(true);
               markTextureDirty();
-              console.log('[VIDEO DEBUG] 🔥 WebKit warmup complete');
             }, 50);
           } catch (error) {
-            console.warn('[VIDEO DEBUG] ⚠️ Warmup failed, setting ready anyway:', error);
             setIsReady(true);
             markTextureDirty();
           }
         };
-
         warmup();
       }
     };
 
     const handleCanPlay = () => {
-      console.log('[VIDEO DEBUG] ✅ Video can play', {
-        url: resolvedUrl,
-        readyState: video.readyState,
-        paused: video.paused
-      });
       setIsReady(true);
       markTextureDirty();
     };
 
     const handlePlay = () => {
-      console.log('[VIDEO DEBUG] ▶️ Video playing', {
-        url: resolvedUrl,
-        currentTime: video.currentTime,
-        paused: video.paused
-      });
       setIsReady(true);
       setIsPlaying(true);
       markTextureDirty();
     };
 
     const handlePause = () => {
-      console.log('[VIDEO DEBUG] ⏸️ Video paused', {
-        url: resolvedUrl,
-        currentTime: video.currentTime,
-        readyState: video.readyState,
-        muted: video.muted,
-        paused: video.paused,
-        ended: video.ended,
-        error: video.error,
-        networkState: video.networkState,
-        stack: new Error().stack
-      });
       setIsPlaying(false);
       markTextureDirty();
     };
 
     const handleError = () => {
-      const mediaError = video.error;
-      console.error('[VIDEO DEBUG] ❌ Video error', {
-        code: mediaError?.code,
-        message: mediaError?.message,
-        url: resolvedUrl,
-      });
+      // Silently handle errors
     };
 
     video.addEventListener('loadedmetadata', updateDimensions);
@@ -627,30 +544,9 @@ function useTechniqueVideoTexture(videoUrl: string) {
       return;
     }
 
-    // Always mark texture as needing update when video has data, even if paused
-    // This ensures the first frame shows when video is loaded but paused
+    // Always mark texture as needing update when video has data
     if (video.readyState >= 2) {
       texture.needsUpdate = true;
-
-      // Debug: log texture state every 60 frames (~ once per second)
-      if (Math.random() < 0.016) {
-        console.log('[TEXTURE DEBUG] 🎨 Texture update', {
-          url: resolvedUrl,
-          textureUuid: texture.uuid,
-          needsUpdateBefore: texture.needsUpdate,
-          videoCurrentTime: video.currentTime,
-          videoPaused: video.paused,
-          videoReadyState: video.readyState,
-          textureImageIsVideo: texture.image === video,
-          textureImageType: texture.image?.constructor?.name,
-          videoWidth: video.videoWidth,
-          videoHeight: video.videoHeight,
-          textureVersion: texture.version
-        });
-        // Set it again just to be sure
-        texture.needsUpdate = true;
-        console.log('[TEXTURE DEBUG] 🔄 Set needsUpdate=true, version now:', texture.version);
-      }
     }
   });
 
@@ -894,26 +790,8 @@ function TechniqueCard({
     if (material && texture && isReady) {
       material.map = texture;
       material.needsUpdate = true;
-      console.log('[MATERIAL DEBUG] 🎨 Forced material update', {
-        videoUrl,
-        textureUuid: texture.uuid,
-        materialUuid: material.uuid
-      });
     }
   }, [texture, isReady, videoUrl]);
-
-  // Debug logging for render - only when isReady changes
-  React.useEffect(() => {
-    if (isReady) {
-      console.log('[CARD DEBUG] ✅ Card ready', {
-        videoUrl,
-        hasTexture: !!texture,
-        textureUuid: texture?.uuid,
-        videoWidth,
-        videoHeight
-      });
-    }
-  }, [isReady, texture, videoUrl, videoWidth, videoHeight]);
 
   return (
     <group ref={cardRef} position={position} rotation={rotation} scale={scale}>
@@ -1010,9 +888,12 @@ function CoachChatCard() {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      setCoachResponse("Voice input not supported in this browser.");
+      console.error('❌ Speech Recognition not available');
+      setCoachResponse("Voice not supported. Chrome/Edge on Meta Quest recommended.");
       return;
     }
+
+    console.log('✅ Speech Recognition available, initializing...');
 
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
@@ -1021,16 +902,19 @@ function CoachChatCard() {
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
+      console.log('🎤 Speech recognition started');
       setIsListening(true);
       setCoachResponse("I'm listening...");
     };
 
     recognition.onresult = async (event: any) => {
       const transcript = event.results[0][0].transcript;
+      console.log('🗣️ Speech detected:', transcript);
       setCoachResponse(`You: "${transcript}"`);
       setIsProcessing(true);
 
       try {
+        console.log('📡 Sending to Coach Andy API...');
         const response = await fetch('http://localhost:3001/api/vr-coach-chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1038,8 +922,10 @@ function CoachChatCard() {
         });
 
         const data = await response.json();
+        console.log('✅ Coach response:', data.response);
         setCoachResponse(data.response || "Keep working hard!");
       } catch (error) {
+        console.error('❌ Coach API error:', error);
         setCoachResponse("That's the spirit! Keep grinding!");
       } finally {
         setIsProcessing(false);
@@ -1048,15 +934,18 @@ function CoachChatCard() {
     };
 
     recognition.onerror = (event: any) => {
+      console.error('❌ Speech recognition error:', event.error, event);
       setIsListening(false);
       setIsProcessing(false);
 
       if (event.error === 'no-speech') {
         setCoachResponse("Didn't catch that. Try again!");
       } else if (event.error === 'not-allowed') {
-        setCoachResponse("Microphone access denied. Enable it in settings.");
+        setCoachResponse("Microphone blocked! Grant mic permission in browser settings.");
+      } else if (event.error === 'network') {
+        setCoachResponse("Network error. Check connection.");
       } else {
-        setCoachResponse("Speech error. Click mic to try again.");
+        setCoachResponse(`Error: ${event.error}. Click mic to retry.`);
       }
     };
 
@@ -1078,9 +967,16 @@ function CoachChatCard() {
       recognitionRef.current?.stop();
     } else if (!isProcessing && recognitionRef.current) {
       try {
+        console.log('🎤 Starting speech recognition...');
         recognitionRef.current.start();
-      } catch (error) {
-        setCoachResponse("Mic error. Try refreshing the page.");
+        setCoachResponse("Starting mic... Speak now!");
+      } catch (error: any) {
+        console.error('❌ Speech recognition error:', error);
+        if (error.message?.includes('already started')) {
+          setCoachResponse("Mic already active. Speak now!");
+        } else {
+          setCoachResponse(`Mic error: ${error.message}. Try refreshing.`);
+        }
       }
     }
   }, [isListening, isProcessing]);
