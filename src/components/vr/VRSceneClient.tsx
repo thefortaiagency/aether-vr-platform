@@ -100,16 +100,20 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
 
   return (
     <>
-      {/* MINIMAL TEST - Only dark skybox, no texture */}
+      {/* 360° Background Sphere */}
       <mesh>
         <sphereGeometry args={[50, 32, 32]} />
-        <meshBasicMaterial color={0x1a1a2e} side={THREE.BackSide} />
+        <meshBasicMaterial
+          map={texture}
+          side={THREE.BackSide}
+          toneMapped={false}
+        />
       </mesh>
 
-      {/* Simple floor - no shadows */}
+      {/* Simple floor */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
         <planeGeometry args={[100, 100]} />
-        <meshBasicMaterial color={0x0a0a15} />
+        <meshBasicMaterial color={0x333333} />
       </mesh>
     </>
   );
@@ -258,7 +262,7 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         );
       })}
 
-      {/* 360° BACKGROUND - WebXR Layer (compositor-rendered, saves ~8MB GPU memory) */}
+      {/* 360° BACKGROUND - WebXR Layer for VR headset (compositor-rendered, saves ~8MB GPU memory) */}
       {backgroundImageUrl && supportsXRLayers() && (
         <BackgroundXRLayer
           imageUrl={backgroundImageUrl}
@@ -269,10 +273,10 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
         />
       )}
 
-      {/* TEMPORARILY DISABLED - Gymnasium background */}
-      {/* {backgroundImageUrl && !supportsXRLayers() && (
+      {/* 360° BACKGROUND - Gymnasium for desktop (3D sphere with texture) */}
+      {backgroundImageUrl && !supportsXRLayers() && (
         <Gymnasium backgroundImageUrl={backgroundImageUrl} />
-      )} */}
+      )}
 
       {/* TEMPORARILY DISABLED - Coach video panel */}
       {/* {showCoach && roomName && userName ? (
