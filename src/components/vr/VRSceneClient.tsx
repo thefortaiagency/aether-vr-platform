@@ -1313,17 +1313,25 @@ const TECHNIQUE_CARDS_DATA = [
 ] as const;
 
 const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((card, index) => {
-  // 3x2 grid layout - extra small initial size to prevent overlap
-  const row = Math.floor(index / 3); // 0 or 1 (top or bottom row)
-  const col = index % 3; // 0, 1, or 2 (left, center, right)
-
+  // 5 cards layout: 3 on top row, 2 on bottom row (centered)
   const xSpacing = 2.8;
   const ySpacing = 2.2;
   const zDistance = -5;
 
-  // Center the grid horizontally
-  const x = (col - 1) * xSpacing; // -2.8, 0, 2.8
-  const y = CARD_BASE_HEIGHT + 1.2 - (row * ySpacing); // top row higher, bottom row lower
+  let x, y;
+
+  if (index < 3) {
+    // Top row: 3 cards (indices 0, 1, 2)
+    const col = index; // 0, 1, 2
+    x = (col - 1) * xSpacing; // -2.8, 0, 2.8
+    y = CARD_BASE_HEIGHT + 1.2;
+  } else {
+    // Bottom row: 2 cards (indices 3, 4) - centered
+    const col = index - 3; // 0, 1
+    x = (col - 0.5) * xSpacing; // -1.4, 1.4 (centered between positions)
+    y = CARD_BASE_HEIGHT + 1.2 - ySpacing;
+  }
+
   const z = zDistance;
 
   return {
@@ -1340,7 +1348,7 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((c
 function VRSceneContent({ backgroundImageUrl, onScreenshot, onBackgroundReady }: VRSceneProps) {
   const [cards, setCards] = React.useState<TechniqueCardState[]>(() => TECHNIQUE_CARD_PRESETS);
   const [coachCardState, setCoachCardState] = React.useState({
-    position: [0, CARD_BASE_HEIGHT + 1.2, -5] as [number, number, number], // Center position (replaced middle card)
+    position: [0, CARD_BASE_HEIGHT + 3.4, -5] as [number, number, number], // Above all cards (centered)
     scale: 0.75,
     rotation: [0, 0, 0] as [number, number, number],
   });
