@@ -328,18 +328,22 @@ function useTechniqueVideoTexture(videoUrl: string) {
     const video = document.createElement('video');
     video.crossOrigin = 'anonymous';
     video.loop = true;
-    video.muted = true;
+    video.muted = false; // TEMP: unmute to verify video plays
     video.playsInline = true;
     video.setAttribute('playsinline', 'true');
     video.setAttribute('webkit-playsinline', 'true');
     video.preload = 'auto';
     video.src = videoUrl;
-    video.style.position = 'absolute';
-    video.style.width = '1px';
-    video.style.height = '1px';
-    video.style.opacity = '0';
+    video.style.position = 'fixed'; // TEMP: make visible for debugging
+    video.style.top = '10px';
+    video.style.right = '10px';
+    video.style.width = '200px';
+    video.style.height = 'auto';
+    video.style.zIndex = '9999';
+    video.style.border = '2px solid red';
     video.style.pointerEvents = 'none';
     document.body.appendChild(video);
+    console.log('[VIDEO DEBUG] Video element created and appended', { src: videoUrl });
 
     const texture = new THREE.VideoTexture(video);
     texture.colorSpace = THREE.SRGBColorSpace;
@@ -384,17 +388,20 @@ function useTechniqueVideoTexture(videoUrl: string) {
     const handleLoadedData = () => {
       updateDimensions();
       if (video.readyState >= 2) {
+        console.log('[VIDEO DEBUG] Video loaded data, setting ready', { url: videoUrl, readyState: video.readyState });
         setIsReady(true);
         ensurePlaying();
       }
     };
 
     const handleCanPlay = () => {
+      console.log('[VIDEO DEBUG] Video can play, setting ready', { url: videoUrl });
       setIsReady(true);
       ensurePlaying();
     };
 
     const handlePlay = () => {
+      console.log('[VIDEO DEBUG] Video playing', { url: videoUrl });
       setIsReady(true);
     };
 
@@ -691,6 +698,16 @@ function TechniqueCard({
   const controlOffsetX = frameWidth / 2 + 0.32;
   const controlOffsetY = frameHeight / 2 + 0.32;
   const controlZ = CARD_DEPTH / 2 + 0.12;
+
+  // Debug logging
+  React.useEffect(() => {
+    console.log('[CARD RENDER] Texture state:', {
+      hasTexture: !!texture,
+      isReady,
+      videoUrl,
+      textureImage: texture?.image
+    });
+  }, [texture, isReady, videoUrl]);
 
   return (
     <group ref={cardRef} position={position} rotation={rotation} scale={scale}>
