@@ -1010,7 +1010,6 @@ function CoachChatCard() {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      console.warn('[COACH DEBUG] Speech recognition not supported');
       setCoachResponse("Voice input not supported in this browser.");
       return;
     }
@@ -1022,29 +1021,25 @@ function CoachChatCard() {
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
-      console.log('[COACH DEBUG] Voice recognition started');
       setIsListening(true);
       setCoachResponse("I'm listening...");
     };
 
     recognition.onresult = async (event: any) => {
       const transcript = event.results[0][0].transcript;
-      console.log('[COACH DEBUG] Heard:', transcript);
       setCoachResponse(`You: "${transcript}"`);
       setIsProcessing(true);
 
       try {
-        const response = await fetch('/api/vr-coach-chat', {
+        const response = await fetch('http://localhost:3001/api/vr-coach-chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: transcript }),
         });
 
         const data = await response.json();
-        console.log('[COACH DEBUG] Coach responded:', data.response);
         setCoachResponse(data.response || "Keep working hard!");
       } catch (error) {
-        console.error('[COACH DEBUG] Error:', error);
         setCoachResponse("That's the spirit! Keep grinding!");
       } finally {
         setIsProcessing(false);
@@ -1053,7 +1048,6 @@ function CoachChatCard() {
     };
 
     recognition.onerror = (event: any) => {
-      console.error('[COACH DEBUG] Speech recognition error:', event.error);
       setIsListening(false);
       setIsProcessing(false);
 
@@ -1067,7 +1061,6 @@ function CoachChatCard() {
     };
 
     recognition.onend = () => {
-      console.log('[COACH DEBUG] Voice recognition ended');
       setIsListening(false);
     };
 
@@ -1087,7 +1080,6 @@ function CoachChatCard() {
       try {
         recognitionRef.current.start();
       } catch (error) {
-        console.error('[COACH DEBUG] Failed to start recognition:', error);
         setCoachResponse("Mic error. Try refreshing the page.");
       }
     }
