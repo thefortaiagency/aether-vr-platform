@@ -867,18 +867,18 @@ function TechniqueCard({
   const controlZ = CARD_DEPTH / 2 + 0.12;
   const playbackOffsetY = controlOffsetY + 0.32;
 
-  // Debug logging for render
+  // Debug logging for render - only when isReady changes
   React.useEffect(() => {
-    console.log('[CARD DEBUG] 🎴 Card rendering', {
-      videoUrl,
-      hasTexture: !!texture,
-      isReady,
-      isPlaying,
-      textureUuid: texture?.uuid,
-      videoWidth,
-      videoHeight
-    });
-  }, [texture, isReady, isPlaying, videoUrl, videoWidth, videoHeight]);
+    if (isReady) {
+      console.log('[CARD DEBUG] ✅ Card ready', {
+        videoUrl,
+        hasTexture: !!texture,
+        textureUuid: texture?.uuid,
+        videoWidth,
+        videoHeight
+      });
+    }
+  }, [isReady, texture, videoUrl, videoWidth, videoHeight]);
 
   return (
     <group ref={cardRef} position={position} rotation={rotation} scale={scale}>
