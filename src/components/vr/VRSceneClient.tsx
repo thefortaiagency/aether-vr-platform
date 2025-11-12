@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
 import { XR, createXRStore } from '@react-three/xr';
 import * as THREE from 'three';
@@ -30,59 +30,78 @@ const xrStore = createXRStore({
 
 // Gymnasium Environment - Curved background screen for VR (full 360° equirect image)
 function EquirectBackground({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
-  const textureRef = React.useRef<THREE.Texture | null>(null);
-  const [ready, setReady] = React.useState(false);
+  const { scene } = useThree();
+  const fallbackColor = React.useMemo(() => new THREE.Color(0x05070a), []);
 
   React.useEffect(() => {
+    let cancelled = false;
+    let activeTexture: THREE.Texture | null = null;
+
+    const resetSceneBackground = () => {
+      scene.background = fallbackColor;
+      scene.environment = null;
+      scene.backgroundIntensity = 1;
+      scene.backgroundBlurriness = 0;
+
+      console.log('[VR BACKGROUND] Using fallback color');
+    };
+
     if (!backgroundImageUrl) {
-      textureRef.current = null;
-      setReady(false);
+      resetSceneBackground();
       return;
     }
 
-    let disposed = false;
-    const loader = new THREE.TextureLoader();
+    resetSceneBackground();
 
+    const loader = new THREE.TextureLoader();
     loader.setCrossOrigin('anonymous');
+
     loader.load(
       backgroundImageUrl,
-      (tex) => {
-        if (disposed) return;
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.wrapS = THREE.ClampToEdgeWrapping;
-        tex.wrapT = THREE.ClampToEdgeWrapping;
-        tex.mapping = THREE.EquirectangularReflectionMapping;
-        textureRef.current = tex;
-        setReady(true);
+      (texture) => {
+        if (cancelled) {
+          texture.dispose();
+          return;
+        }
+
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.needsUpdate = true;
+
+        scene.background = texture;
+        scene.environment = texture;
+        scene.backgroundIntensity = 1;
+        scene.backgroundBlurriness = 0;
+
+        activeTexture = texture;
+
+        console.log('[VR BACKGROUND] Applied 360 texture', {
+          url: backgroundImageUrl,
+          texture: texture.uuid,
+        });
       },
       undefined,
       (error) => {
         console.error('[VR BACKGROUND] Failed to load 360 asset', error);
-        textureRef.current = null;
-        setReady(false);
+        resetSceneBackground();
       }
     );
 
     return () => {
-      disposed = true;
-      if (textureRef.current) {
-        textureRef.current.dispose();
-        textureRef.current = null;
+      cancelled = true;
+      resetSceneBackground();
+      if (activeTexture) {
+        activeTexture.dispose();
+        activeTexture = null;
       }
     };
-  }, [backgroundImageUrl]);
+  }, [backgroundImageUrl, fallbackColor, scene]);
 
-  return (
-    <mesh>
-      <sphereGeometry args={[60, 64, 64]} />
-      <meshBasicMaterial
-        map={ready ? textureRef.current ?? undefined : undefined}
-        color={ready ? 0xffffff : 0x101020}
-        side={THREE.BackSide}
-        toneMapped={false}
-      />
-    </mesh>
-  );
+  return null;
 }
 
 type TechniqueCardState = {
@@ -346,7 +365,7 @@ function VRSceneContent({ backgroundImageUrl, onScreenshot }: VRSceneProps) {
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
         <planeGeometry args={[120, 120]} />
-        <meshStandardMaterial color="#0b1120" />
+        <meshStandardMaterial color="#0f172a" metalness={0.05} roughness={0.9} />
       </mesh>
 
       <group position={[0, 1.35, -3]}>
