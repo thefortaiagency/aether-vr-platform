@@ -1001,24 +1001,20 @@ function TechniqueCard({
 // Draggable 3D Video Panel for VR
 const TECHNIQUE_CARD_IDS = [
   'stance',
-  'hand-fight',
-  'setups',
-  'finishes',
-  'mat-returns',
-  'chain',
+  // 'hand-fight',
+  // 'setups',
+  // 'finishes',
+  // 'mat-returns',
+  // 'chain',
 ] as const;
 
 const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARD_IDS.map((id, index) => {
-  const theta = (index / TECHNIQUE_CARD_IDS.length) * Math.PI * 2;
-  const x = Math.sin(theta) * CARD_RING_RADIUS;
-  const z = -Math.cos(theta) * CARD_RING_RADIUS;
-  const rotationY = Math.atan2(x, -z);
-
+  // Position single card directly in front of camera for testing
   return {
     id,
-    position: [x, CARD_BASE_HEIGHT, z],
-    rotation: [0, rotationY, 0],
-    scale: 2.15,
+    position: [0, CARD_BASE_HEIGHT, -3],
+    rotation: [0, 0, 0],
+    scale: 1.5,
     videoUrl: '/video/latora30.mp4',
   };
 });
