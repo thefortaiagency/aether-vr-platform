@@ -32,20 +32,38 @@ const xrStore = createXRStore({
 function PanoramaBackground({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
   const { scene } = useThree();
   const [texture, setTexture] = React.useState<THREE.Texture | null>(null);
+  const previousBackgroundRef = React.useRef<THREE.Texture | null>(null);
+  const previousEnvironmentRef = React.useRef<THREE.Texture | null>(null);
+  const activeTextureRef = React.useRef<THREE.Texture | null>(null);
 
   React.useEffect(() => {
     let disposed = false;
-    let nextTexture: THREE.Texture | null = null;
+    let pendingTexture: THREE.Texture | null = null;
 
-    // Always keep the Three.js background/environment clear so only the sphere renders
-    scene.background = null;
-    scene.environment = null;
+    // Cache any existing background/environment so we can restore it on cleanup
+    if (!previousBackgroundRef.current) {
+      previousBackgroundRef.current = scene.background as THREE.Texture | null;
+    }
+
+    if (!previousEnvironmentRef.current) {
+      previousEnvironmentRef.current = scene.environment as THREE.Texture | null;
+    }
 
     if (!backgroundImageUrl) {
+      const activeTexture = activeTextureRef.current;
+
+      if (scene.background === activeTexture) {
+        scene.background = previousBackgroundRef.current;
+      }
+
+      if (scene.environment === activeTexture) {
+        scene.environment = previousEnvironmentRef.current;
+      }
+
       setTexture(null);
       return () => {
-        if (nextTexture) {
-          nextTexture.dispose();
+        if (pendingTexture) {
+          pendingTexture.dispose();
         }
       };
     }
@@ -66,10 +84,15 @@ function PanoramaBackground({ backgroundImageUrl }: { backgroundImageUrl?: strin
         loaded.wrapT = THREE.ClampToEdgeWrapping;
         loaded.minFilter = THREE.LinearFilter;
         loaded.magFilter = THREE.LinearFilter;
+        loaded.mapping = THREE.EquirectangularReflectionMapping;
         loaded.needsUpdate = true;
 
-        nextTexture = loaded;
+        pendingTexture = loaded;
+        activeTextureRef.current = loaded;
         setTexture(loaded);
+
+        scene.background = loaded;
+        scene.environment = loaded;
 
         console.log('[VR BACKGROUND] Panorama loaded', {
           url: backgroundImageUrl,
@@ -85,9 +108,27 @@ function PanoramaBackground({ backgroundImageUrl }: { backgroundImageUrl?: strin
 
     return () => {
       disposed = true;
-      if (nextTexture) {
-        nextTexture.dispose();
-        nextTexture = null;
+      const pending = pendingTexture;
+      pendingTexture = null;
+
+      const activeTexture = activeTextureRef.current;
+
+      if (pending && pending !== activeTexture) {
+        pending.dispose();
+      }
+
+      // Restore previous background/environment if we were the active panorama
+      if (scene.background === activeTexture) {
+        scene.background = previousBackgroundRef.current;
+      }
+
+      if (scene.environment === activeTexture) {
+        scene.environment = previousEnvironmentRef.current;
+      }
+
+      if (activeTexture) {
+        activeTexture.dispose();
+        activeTextureRef.current = null;
       }
     };
   }, [backgroundImageUrl, scene]);
@@ -97,9 +138,14 @@ function PanoramaBackground({ backgroundImageUrl }: { backgroundImageUrl?: strin
   }
 
   return (
-    <mesh scale={-1} frustumCulled={false}>
+    <mesh scale={-1} frustumCulled={false} rotation={[0, Math.PI, 0]}>
       <sphereGeometry args={[60, 128, 64]} />
-      <meshBasicMaterial map={texture} side={THREE.BackSide} toneMapped={false} />
+      <meshBasicMaterial
+        map={texture}
+        side={THREE.BackSide}
+        toneMapped={false}
+        depthWrite={false}
+      />
     </mesh>
   );
 }
