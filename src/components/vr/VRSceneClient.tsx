@@ -463,8 +463,8 @@ function useTechniqueVideoTexture(videoUrl: string) {
     video.crossOrigin = 'anonymous';
     video.setAttribute('crossorigin', 'anonymous');
     video.loop = true;
-    video.muted = true; // Must be muted for autoplay to work
-    video.defaultMuted = true;
+    video.muted = false; // Enable audio
+    video.defaultMuted = false;
     video.autoplay = false;
     video.playsInline = true;
     video.setAttribute('playsinline', 'true');
@@ -934,7 +934,8 @@ function TechniqueCard({
             emissiveIntensity={0.25 + glowLevel}
           />
         </RoundedBox>
-        <RoundedBox
+        {/* Temporarily removed dark frame for debugging */}
+        {/* <RoundedBox
           args={[frameWidth + CARD_BORDER * 1.4, frameHeight + CARD_BORDER * 1.4, CARD_DEPTH * 0.6]}
           radius={0.065}
           smoothness={6}
@@ -949,15 +950,13 @@ function TechniqueCard({
             emissive="#101320"
             emissiveIntensity={0.18 + glowLevel * 0.55}
           />
-        </RoundedBox>
-        <mesh position={[0, 0, CARD_DEPTH / 2 + 0.001]} {...pointerHandlers}>
+        </RoundedBox> */}
+        <mesh position={[0, 0, CARD_DEPTH / 2 + 0.1]} {...pointerHandlers}>
           <planeGeometry args={[videoWidth, videoHeight]} />
           <meshBasicMaterial
             ref={materialRef}
             map={texture && isReady ? texture : undefined}
-            color={texture && isReady ? undefined : '#0f111a'}
             toneMapped={false}
-            transparent={false}
             side={THREE.FrontSide}
             needsUpdate={true}
           />
