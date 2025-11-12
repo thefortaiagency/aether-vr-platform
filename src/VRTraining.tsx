@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from './components/ui/button';
 import {
   Video,
@@ -23,6 +23,7 @@ function VRTraining() {
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [recording, setRecording] = useState(false);
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | undefined>('/trainingmode.png');
+  const [panoramaReady, setPanoramaReady] = useState(false);
   const [screenshotFlash, setScreenshotFlash] = useState(false);
   const [screenshotStatus, setScreenshotStatus] = useState('');
   const [vrActive, setVRActive] = useState(false);
@@ -30,6 +31,10 @@ function VRTraining() {
 
   // Ref to access the VR scene container
   const sceneContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setPanoramaReady(false);
+  }, [backgroundImageUrl]);
 
   const generateBackground = async () => {
     setGeneratingBackground(true);
@@ -139,7 +144,7 @@ function VRTraining() {
   return (
     <div className="relative w-full h-full">
       {/* Full-screen background image */}
-      {backgroundImageUrl && (
+      {backgroundImageUrl && !panoramaReady && (
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
@@ -158,6 +163,7 @@ function VRTraining() {
           onVRStart={() => setVRActive(true)}
           onVREnd={() => setVRActive(false)}
           backgroundImageUrl={backgroundImageUrl}
+          onBackgroundReady={setPanoramaReady}
           roomName={roomName}
           userName={userName}
           onScreenshot={takeScreenshot}

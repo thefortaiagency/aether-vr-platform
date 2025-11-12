@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Text } from '@react-three/drei';
-import { XR, createXRStore } from '@react-three/xr';
+import { Text, OrbitControls } from '@react-three/drei';
+import { XR, createXRStore, useXR } from '@react-three/xr';
 import * as THREE from 'three';
 import { VRControllerScreenshot } from './VRControllerScreenshot';
 
@@ -20,6 +20,7 @@ interface VRSceneProps {
   roomName?: string;
   userName?: string;
   onScreenshot?: () => void;
+  onBackgroundReady?: (ready: boolean) => void;
 }
 
 // Create XR store OUTSIDE component to prevent recreation on re-renders
@@ -29,7 +30,13 @@ const xrStore = createXRStore({
 });
 
 // Gymnasium Environment - renders a true 360° panorama by wrapping the user in a sphere
-function PanoramaBackground({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
+function PanoramaBackground({
+  backgroundImageUrl,
+  onReady,
+}: {
+  backgroundImageUrl?: string;
+  onReady?: (ready: boolean) => void;
+}) {
   const { scene } = useThree();
   const [texture, setTexture] = React.useState<THREE.Texture | null>(null);
   const previousBackgroundRef = React.useRef<THREE.Texture | null>(null);
@@ -61,6 +68,7 @@ function PanoramaBackground({ backgroundImageUrl }: { backgroundImageUrl?: strin
       }
 
       setTexture(null);
+      onReady?.(false);
       return () => {
         if (pendingTexture) {
           pendingTexture.dispose();
@@ -94,6 +102,8 @@ function PanoramaBackground({ backgroundImageUrl }: { backgroundImageUrl?: strin
         scene.background = loaded;
         scene.environment = loaded;
 
+        onReady?.(true);
+
         console.log('[VR BACKGROUND] Panorama loaded', {
           url: backgroundImageUrl,
           texture: loaded.uuid,
@@ -103,6 +113,7 @@ function PanoramaBackground({ backgroundImageUrl }: { backgroundImageUrl?: strin
       (error) => {
         console.error('[VR BACKGROUND] Failed to load panorama', error);
         setTexture(null);
+        onReady?.(false);
       }
     );
 
@@ -130,8 +141,10 @@ function PanoramaBackground({ backgroundImageUrl }: { backgroundImageUrl?: strin
         activeTexture.dispose();
         activeTextureRef.current = null;
       }
+
+      onReady?.(false);
     };
-  }, [backgroundImageUrl, scene]);
+  }, [backgroundImageUrl, onReady, scene]);
 
   if (!texture) {
     return null;
@@ -383,8 +396,9 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = [
 ];
 
 // Main VR Scene Content
-function VRSceneContent({ backgroundImageUrl, onScreenshot }: VRSceneProps) {
+function VRSceneContent({ backgroundImageUrl, onScreenshot, onBackgroundReady }: VRSceneProps) {
   const [cards, setCards] = React.useState<TechniqueCardState[]>(() => TECHNIQUE_CARD_PRESETS);
+  const { isPresenting } = useXR();
 
   const updateCardPosition = React.useCallback((id: string, position: [number, number, number]) => {
     setCards((prev) =>
@@ -407,7 +421,18 @@ function VRSceneContent({ backgroundImageUrl, onScreenshot }: VRSceneProps) {
       <ambientLight intensity={1.0} />
       <directionalLight position={[0, 10, 0]} intensity={1.0} />
 
-      <PanoramaBackground backgroundImageUrl={backgroundImageUrl} />
+      <PanoramaBackground backgroundImageUrl={backgroundImageUrl} onReady={onBackgroundReady} />
+
+      {!isPresenting && (
+        <OrbitControls
+          makeDefault
+          enablePan={false}
+          enableZoom={false}
+          target={[0, 1.35, -3]}
+          minPolarAngle={Math.PI / 6}
+          maxPolarAngle={(2 * Math.PI) / 3}
+        />
+      )}
 
       <group position={[0, 1.35, -3]}>
         {cards.map((card) => (
