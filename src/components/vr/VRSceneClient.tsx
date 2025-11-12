@@ -2,13 +2,14 @@
 
 import React from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Text, OrbitControls } from '@react-three/drei';
+import { OrbitControls, RoundedBox } from '@react-three/drei';
 import { XR, createXRStore, useXR } from '@react-three/xr';
 import * as THREE from 'three';
 import { VRControllerScreenshot } from './VRControllerScreenshot';
 
-const CARD_BASE_SIZE: [number, number] = [1.6, 0.95];
-const CARD_DEPTH = 0.06;
+const CARD_HEIGHT = 1.05;
+const CARD_DEPTH = 0.045;
+const CARD_FRAME_PADDING = 0.14;
 
 interface VRSceneProps {
   activeExercise: string;
@@ -87,6 +88,7 @@ function PanoramaBackground({
           return;
         }
 
+        loaded.flipY = false;
         loaded.colorSpace = THREE.SRGBColorSpace;
         loaded.wrapS = THREE.ClampToEdgeWrapping;
         loaded.wrapT = THREE.ClampToEdgeWrapping;
@@ -151,7 +153,7 @@ function PanoramaBackground({
   }
 
   return (
-    <mesh scale={-1} frustumCulled={false} rotation={[0, Math.PI, 0]}>
+    <mesh frustumCulled={false} rotation={[0, Math.PI, 0]}>
       <sphereGeometry args={[60, 128, 64]} />
       <meshBasicMaterial
         map={texture}
@@ -165,12 +167,11 @@ function PanoramaBackground({
 
 type TechniqueCardState = {
   id: string;
-  title: string;
-  description: string;
   position: [number, number, number];
   rotation: [number, number, number];
   scale: number;
-  color: string;
+  frameColor: string;
+  glowColor: string;
   videoUrl: string;
 };
 
@@ -181,6 +182,7 @@ function clamp(value: number, min: number, max: number) {
 interface TechniqueCardProps extends TechniqueCardState {
   onPositionChange: (position: [number, number, number]) => void;
   onScaleChange: (scale: number) => void;
+  onRotationChange: (rotation: [number, number, number]) => void;
 }
 
 function useTechniqueVideoTexture(videoUrl: string) {
@@ -317,33 +319,31 @@ function useTechniqueVideoTexture(videoUrl: string) {
 }
 
 function TechniqueCard({
-  title,
-  description,
   position,
   rotation,
   scale,
-  color,
+  frameColor,
+  glowColor,
   videoUrl,
   onPositionChange,
   onScaleChange,
+  onRotationChange,
 }: TechniqueCardProps) {
   const cardRef = React.useRef<THREE.Group>(null);
-  const dragPlane = React.useMemo(() => new THREE.Plane(new THREE.Vector3(0, 0, 1), position[2]), [position]);
+  const dragPlane = React.useMemo(
+    () => new THREE.Plane(new THREE.Vector3(0, 0, 1), -position[2]),
+    [position[2]]
+  );
   const intersectionPoint = React.useMemo(() => new THREE.Vector3(), []);
   const raycaster = React.useMemo(() => new THREE.Raycaster(), []);
   const [isDragging, setIsDragging] = React.useState(false);
+  const [isHovered, setIsHovered] = React.useState(false);
   const lastPointerId = React.useRef<number | null>(null);
   const dragMoved = React.useRef(false);
+  const rotateDuringDrag = React.useRef(false);
+  const pointerDeltaRef = React.useRef<{ x: number; y: number } | null>(null);
 
-  const {
-    texture,
-    isReady,
-    isPlaying,
-    isMuted,
-    dimensions,
-    togglePlayback,
-    toggleMute,
-  } = useTechniqueVideoTexture(videoUrl);
+  const { texture, isReady, dimensions, togglePlayback } = useTechniqueVideoTexture(videoUrl);
 
   const videoAspect = React.useMemo(() => {
     if (!dimensions.width || !dimensions.height) {
@@ -352,63 +352,112 @@ function TechniqueCard({
     return dimensions.width / dimensions.height;
   }, [dimensions]);
 
-  const maxVideoWidth = CARD_BASE_SIZE[0] * 0.9;
-  const maxVideoHeight = CARD_BASE_SIZE[1] * 0.55;
-  let videoWidth = maxVideoWidth;
-  let videoHeight = videoWidth / videoAspect;
+  const safeAspect = clamp(videoAspect, 0.5, 2.5);
+  const videoHeight = CARD_HEIGHT;
+  const videoWidth = videoHeight * safeAspect;
+  const frameWidth = videoWidth + CARD_FRAME_PADDING;
+  const frameHeight = videoHeight + CARD_FRAME_PADDING;
+  const haloWidth = frameWidth + 0.22;
+  const haloHeight = frameHeight + 0.22;
+  const highlightStrength = isDragging ? 1 : isHovered ? 0.6 : 0.25;
 
-  if (videoHeight > maxVideoHeight) {
-    videoHeight = maxVideoHeight;
-    videoWidth = videoHeight * videoAspect;
-  }
+  const getClientPosition = React.useCallback((event: any) => {
+    const native = event?.nativeEvent;
+    if (native && typeof native.clientX === 'number' && typeof native.clientY === 'number') {
+      return { x: native.clientX, y: native.clientY };
+    }
+    if (typeof event?.clientX === 'number' && typeof event?.clientY === 'number') {
+      return { x: event.clientX, y: event.clientY };
+    }
+    return null;
+  }, []);
+
+  const releasePointerCapture = React.useCallback((event: any) => {
+    if (lastPointerId.current !== null && event?.target?.releasePointerCapture) {
+      try {
+        event.target.releasePointerCapture(lastPointerId.current);
+      } catch (error) {
+        // Some XR controllers do not support releasePointerCapture
+      }
+    }
+    lastPointerId.current = null;
+  }, []);
 
   const handlePointerDown = (event: any) => {
     event.stopPropagation();
     setIsDragging(true);
-    lastPointerId.current = event.pointerId ?? null;
     dragMoved.current = false;
+    rotateDuringDrag.current = false;
+    pointerDeltaRef.current = getClientPosition(event);
+
+    if (typeof event.pointerId === 'number') {
+      lastPointerId.current = event.pointerId;
+      if (event.target?.setPointerCapture) {
+        try {
+          event.target.setPointerCapture(event.pointerId);
+        } catch (error) {
+          // Ignore setPointerCapture errors in XR
+        }
+      }
+    } else {
+      lastPointerId.current = null;
+    }
   };
 
   const handlePointerUp = (event: any) => {
     event.stopPropagation();
+    releasePointerCapture(event);
     setIsDragging(false);
-    if (lastPointerId.current !== null && event.target?.releasePointerCapture) {
-      try {
-        event.target.releasePointerCapture(lastPointerId.current);
-      } catch (err) {
-        // Some XR inputs do not support releasePointerCapture
-      }
+    pointerDeltaRef.current = null;
+
+    const shouldToggle = !dragMoved.current && !rotateDuringDrag.current;
+    dragMoved.current = false;
+    rotateDuringDrag.current = false;
+
+    if (shouldToggle && isReady) {
+      togglePlayback();
     }
-    lastPointerId.current = null;
   };
 
   const handlePointerMove = (event: any) => {
     if (!isDragging) return;
     event.stopPropagation();
 
-    if (!cardRef.current) return;
+    const pointerInfo = getClientPosition(event);
 
-    const pointer = event.intersections?.[0]?.point ?? event.point;
-
-    if (pointer) {
-      onPositionChange([pointer.x, pointer.y, position[2]]);
+    if (event.shiftKey && pointerInfo && pointerDeltaRef.current) {
+      const deltaX = pointerInfo.x - pointerDeltaRef.current.x;
+      if (Math.abs(deltaX) > 0.001) {
+        const nextRotation: [number, number, number] = [
+          rotation[0],
+          rotation[1] - deltaX * 0.01,
+          rotation[2],
+        ];
+        onRotationChange(nextRotation);
+        rotateDuringDrag.current = true;
+      }
       dragMoved.current = true;
-      return;
-    }
-
-    if (event.ray) {
-      raycaster.ray.origin.copy(event.ray.origin);
-      raycaster.ray.direction.copy(event.ray.direction);
-      raycaster.ray.intersectPlane(dragPlane, intersectionPoint);
-      if (!Number.isNaN(intersectionPoint.x)) {
-        onPositionChange([intersectionPoint.x, intersectionPoint.y, position[2]]);
+    } else if (cardRef.current) {
+      const pointer = event.intersections?.[0]?.point ?? event.point;
+      if (pointer) {
+        onPositionChange([pointer.x, pointer.y, position[2]]);
         dragMoved.current = true;
+      } else if (event.ray) {
+        dragPlane.constant = -position[2];
+        raycaster.ray.origin.copy(event.ray.origin);
+        raycaster.ray.direction.copy(event.ray.direction);
+        if (raycaster.ray.intersectPlane(dragPlane, intersectionPoint)) {
+          onPositionChange([intersectionPoint.x, intersectionPoint.y, position[2]]);
+          dragMoved.current = true;
+        }
       }
     }
+
+    pointerDeltaRef.current = pointerInfo ?? pointerDeltaRef.current;
   };
 
   const adjustScale = (delta: number) => {
-    const next = clamp(scale + delta, 0.6, 1.8);
+    const next = clamp(scale + delta, 0.55, 2.1);
     onScaleChange(next);
   };
 
@@ -419,153 +468,65 @@ function TechniqueCard({
     adjustScale(delta < 0 ? 0.05 : -0.05);
   };
 
-  const handleCardClick = React.useCallback(
-    (event: any) => {
-      event.stopPropagation();
-      if (dragMoved.current) {
-        dragMoved.current = false;
-        return;
-      }
-      togglePlayback();
-    },
-    [togglePlayback]
-  );
-
-  const statusLabel = React.useMemo(() => {
-    if (!isReady) return 'Loading';
-    return isPlaying ? 'Playing' : 'Paused';
-  }, [isPlaying, isReady]);
-
-  const cardFrontZ = CARD_DEPTH / 2 + 0.002;
+  const handlePointerCancel = (event: any) => {
+    releasePointerCapture(event);
+    setIsDragging(false);
+    pointerDeltaRef.current = null;
+    dragMoved.current = false;
+    rotateDuringDrag.current = false;
+  };
 
   const pointerHandlers = {
     onPointerDown: handlePointerDown,
     onPointerUp: handlePointerUp,
     onPointerMove: handlePointerMove,
-    onPointerCancel: handlePointerUp,
+    onPointerCancel: handlePointerCancel,
+    onPointerOver: () => setIsHovered(true),
+    onPointerOut: () => {
+      setIsHovered(false);
+      pointerDeltaRef.current = null;
+    },
     onWheel: handleWheel,
+    onContextMenu: (event: any) => event.preventDefault(),
   };
 
   return (
     <group ref={cardRef} position={position} rotation={rotation} scale={scale}>
       <group>
-        <mesh {...pointerHandlers}>
-          <boxGeometry args={[CARD_BASE_SIZE[0], CARD_BASE_SIZE[1], CARD_DEPTH]} />
-          <meshStandardMaterial
-            color={color}
-            metalness={0.15}
-            roughness={0.25}
-            emissive={isPlaying ? '#1c64f2' : '#0f172a'}
-            emissiveIntensity={isPlaying ? 0.35 : 0.2}
+        <mesh position={[0, 0, -CARD_DEPTH]} renderOrder={-2}>
+          <planeGeometry args={[haloWidth, haloHeight]} />
+          <meshBasicMaterial
+            color={glowColor}
             transparent
-            opacity={isDragging ? 0.75 : 0.92}
+            opacity={0.08 + highlightStrength * 0.18}
+            depthWrite={false}
+            toneMapped={false}
           />
         </mesh>
-        <mesh
-          position={[0, 0.05, cardFrontZ]}
+        <RoundedBox
+          args={[frameWidth, frameHeight, CARD_DEPTH]}
+          radius={0.08}
+          smoothness={6}
+          castShadow
+          receiveShadow
           {...pointerHandlers}
-          onClick={handleCardClick}
         >
+          <meshStandardMaterial
+            color={frameColor}
+            metalness={0.3}
+            roughness={0.45}
+            emissive={glowColor}
+            emissiveIntensity={0.22 + highlightStrength * 0.5}
+          />
+        </RoundedBox>
+        <mesh position={[0, 0, CARD_DEPTH / 2 + 0.001]} {...pointerHandlers}>
           <planeGeometry args={[videoWidth, videoHeight]} />
-          {texture ? (
+          {texture && isReady ? (
             <meshBasicMaterial map={texture} toneMapped={false} />
           ) : (
-            <meshStandardMaterial
-              color="#111827"
-              emissive="#1f2937"
-              emissiveIntensity={0.4}
-              transparent
-              opacity={0.8}
-            />
+            <meshStandardMaterial color="#05070d" roughness={0.9} metalness={0.1} />
           )}
         </mesh>
-      </group>
-      <Text
-        position={[0, CARD_BASE_SIZE[1] / 2 - 0.1, cardFrontZ + 0.01]}
-        fontSize={0.14}
-        color="#f8fafc"
-        anchorX="center"
-        anchorY="middle"
-        outlineWidth={0.01}
-        outlineColor="#000000"
-      >
-        {title}
-      </Text>
-      <Text
-        position={[0, CARD_BASE_SIZE[1] / 2 - 0.34, cardFrontZ + 0.01]}
-        fontSize={0.085}
-        color="#e2e8f0"
-        maxWidth={1.3}
-        lineHeight={1.35}
-        anchorX="center"
-        anchorY="top"
-        outlineWidth={0.006}
-        outlineColor="#000000"
-      >
-        {description}
-      </Text>
-      <Text
-        position={[0, -CARD_BASE_SIZE[1] / 2 + 0.18, cardFrontZ + 0.01]}
-        fontSize={0.075}
-        color="#cbd5f5"
-        anchorX="center"
-        anchorY="bottom"
-        outlineWidth={0.005}
-        outlineColor="#000000"
-      >
-        Drag to move • Scroll to resize • Tap video to play/pause
-      </Text>
-      <Text
-        position={[CARD_BASE_SIZE[0] / 2 - 0.12, -CARD_BASE_SIZE[1] / 2 + 0.2, cardFrontZ + 0.01]}
-        fontSize={0.07}
-        color="#38bdf8"
-        anchorX="right"
-        anchorY="bottom"
-        outlineWidth={0.004}
-        outlineColor="#000000"
-      >
-        {scale.toFixed(2)}x
-      </Text>
-      <Text
-        position={[-CARD_BASE_SIZE[0] / 2 + 0.12, -CARD_BASE_SIZE[1] / 2 + 0.2, cardFrontZ + 0.01]}
-        fontSize={0.07}
-        color={isPlaying ? '#34d399' : '#facc15'}
-        anchorX="left"
-        anchorY="bottom"
-        outlineWidth={0.004}
-        outlineColor="#000000"
-      >
-        {statusLabel}
-      </Text>
-      <group
-        position={[CARD_BASE_SIZE[0] / 2 - 0.18, CARD_BASE_SIZE[1] / 2 - 0.22, cardFrontZ + 0.01]}
-        onClick={(event) => {
-          event.stopPropagation();
-          toggleMute();
-        }}
-        onPointerDown={(event) => event.stopPropagation()}
-        onPointerUp={(event) => event.stopPropagation()}
-        onPointerMove={(event) => event.stopPropagation()}
-      >
-        <mesh>
-          <circleGeometry args={[0.09, 24]} />
-          <meshStandardMaterial
-            color={isMuted ? '#f97316' : '#34d399'}
-            emissive={isMuted ? '#f97316' : '#34d399'}
-            emissiveIntensity={0.4}
-            transparent
-            opacity={0.65}
-          />
-        </mesh>
-        <Text
-          position={[0, 0, 0.01]}
-          fontSize={0.1}
-          color="#0f172a"
-          anchorX="center"
-          anchorY="middle"
-        >
-          {isMuted ? '🔇' : '🔊'}
-        </Text>
       </group>
     </group>
   );
@@ -574,62 +535,56 @@ function TechniqueCard({
 const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = [
   {
     id: 'stance',
-    title: 'Athletic Stance',
-    description: 'Knees bent, chest over toes, hands ready. Drive from hips and keep weight centered.',
-    position: [-2.2, 1.5, -3.2],
-    rotation: [0, Math.PI / 14, 0],
-    scale: 1,
-    color: '#1f2937',
+    position: [-2.15, 1.5, -3.15],
+    rotation: [0, Math.PI / 12, 0],
+    scale: 1.05,
+    frameColor: '#111a2c',
+    glowColor: '#38bdf8',
     videoUrl: '/video/latora30.mp4',
   },
   {
     id: 'hand-fight',
-    title: 'Hand Fighting',
-    description: 'Win inside ties. Snap, club, and clear wrists until you feel the opening.',
-    position: [-0.8, 1.7, -3],
-    rotation: [0, Math.PI / 26, 0],
+    position: [-0.85, 1.65, -2.95],
+    rotation: [0, Math.PI / 28, 0],
     scale: 1,
-    color: '#1f2a44',
+    frameColor: '#101827',
+    glowColor: '#22d3ee',
     videoUrl: '/video/latora30.mp4',
   },
   {
-    id: 'setup',
-    title: 'Shot Setups',
-    description: 'Change levels, fake high, shoot through. Eyes up and trail leg tight.',
-    position: [0.6, 1.55, -3],
-    rotation: [0, -Math.PI / 26, 0],
+    id: 'setups',
+    position: [0.55, 1.6, -2.85],
+    rotation: [0, -Math.PI / 32, 0],
     scale: 1,
-    color: '#1d3557',
+    frameColor: '#0f172a',
+    glowColor: '#34d399',
     videoUrl: '/video/latora30.mp4',
   },
   {
-    id: 'finish',
-    title: 'Finish Mechanics',
-    description: 'Cut the corner, head in the ribs, climb the body. Never stay on your knees.',
-    position: [2, 1.45, -3.1],
-    rotation: [0, -Math.PI / 18, 0],
-    scale: 1,
-    color: '#14213d',
+    id: 'finishes',
+    position: [1.85, 1.45, -3.05],
+    rotation: [0, -Math.PI / 16, 0],
+    scale: 1.05,
+    frameColor: '#101820',
+    glowColor: '#facc15',
     videoUrl: '/video/latora30.mp4',
   },
   {
-    id: 'mat-return',
-    title: 'Mat Return',
-    description: 'Lift with legs, block hips, return with control. Land them flat every time.',
-    position: [-1.3, 0.65, -2.8],
-    rotation: [0, Math.PI / 20, 0],
-    scale: 0.95,
-    color: '#1c1f3a',
+    id: 'mat-returns',
+    position: [-1.4, 0.6, -2.65],
+    rotation: [0, Math.PI / 18, 0],
+    scale: 0.92,
+    frameColor: '#111726',
+    glowColor: '#f472b6',
     videoUrl: '/video/latora30.mp4',
   },
   {
     id: 'chain',
-    title: 'Chain Wrestling',
-    description: 'Two steps ahead. Flow from setups to finishes to rides without pausing.',
-    position: [1.1, 0.7, -2.9],
-    rotation: [0, -Math.PI / 28, 0],
-    scale: 0.98,
-    color: '#192742',
+    position: [1.05, 0.55, -2.6],
+    rotation: [0, -Math.PI / 20, 0],
+    scale: 0.95,
+    frameColor: '#101a2b',
+    glowColor: '#a855f7',
     videoUrl: '/video/latora30.mp4',
   },
 ];
@@ -650,6 +605,15 @@ function VRSceneContent({ backgroundImageUrl, onScreenshot, onBackgroundReady }:
       prev.map((card) => (card.id === id ? { ...card, scale } : card))
     );
   }, []);
+
+  const updateCardRotation = React.useCallback(
+    (id: string, rotation: [number, number, number]) => {
+      setCards((prev) =>
+        prev.map((card) => (card.id === id ? { ...card, rotation } : card))
+      );
+    },
+    []
+  );
 
   return (
     <>
@@ -680,6 +644,7 @@ function VRSceneContent({ backgroundImageUrl, onScreenshot, onBackgroundReady }:
             {...card}
             onPositionChange={(next) => updateCardPosition(card.id, next)}
             onScaleChange={(next) => updateCardScale(card.id, next)}
+            onRotationChange={(next) => updateCardRotation(card.id, next)}
           />
         ))}
       </group>
