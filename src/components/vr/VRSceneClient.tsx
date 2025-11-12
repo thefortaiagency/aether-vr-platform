@@ -924,6 +924,15 @@ function CoachChatCard() {
         const data = await response.json();
         console.log('✅ Coach response:', data.response);
         setCoachResponse(data.response || "Keep working hard!");
+
+        // Play audio if available
+        if (data.audioUrl) {
+          console.log('🔊 Playing Coach Andy audio...');
+          const audio = new Audio(data.audioUrl);
+          audio.play().catch((err) => {
+            console.error('❌ Audio playback error:', err);
+          });
+        }
       } catch (error) {
         console.error('❌ Coach API error:', error);
         setCoachResponse("That's the spirit! Keep grinding!");
@@ -1039,16 +1048,57 @@ function CoachChatCard() {
         COACH ANDY
       </Text>
 
-      {/* Coach response text */}
+      {/* Coach Andy Hologram */}
+      <group position={[0, 0.2, CARD_DEPTH / 2 + 0.11]}>
+        {/* Hologram figure - simplified coach silhouette */}
+        <mesh position={[0, 0, 0]}>
+          {/* Head */}
+          <sphereGeometry args={[0.15, 16, 16]} />
+          <meshStandardMaterial
+            color="#00ffff"
+            transparent={true}
+            opacity={0.3}
+            emissive="#00cccc"
+            emissiveIntensity={0.8}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+        <mesh position={[0, -0.3, 0]}>
+          {/* Body */}
+          <boxGeometry args={[0.25, 0.4, 0.15]} />
+          <meshStandardMaterial
+            color="#00ffff"
+            transparent={true}
+            opacity={0.25}
+            emissive="#00cccc"
+            emissiveIntensity={0.7}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+        {/* Hologram scan lines effect */}
+        <mesh position={[0, 0, 0.01]}>
+          <planeGeometry args={[0.6, 0.8]} />
+          <meshBasicMaterial
+            color="#00ffff"
+            transparent={true}
+            opacity={0.1}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      </group>
+
+      {/* Coach response text - overlaying hologram */}
       <Text
-        position={[0, 0, CARD_DEPTH / 2 + 0.12]}
-        fontSize={0.13}
+        position={[0, -0.3, CARD_DEPTH / 2 + 0.13]}
+        fontSize={0.12}
         color="#ffffff"
         anchorX="center"
         anchorY="middle"
         maxWidth={cardWidth - 0.4}
         textAlign="center"
-        lineHeight={1.3}
+        lineHeight={1.2}
+        outlineWidth={0.01}
+        outlineColor="#000000"
       >
         {coachResponse}
       </Text>
@@ -1114,24 +1164,25 @@ const TECHNIQUE_CARD_IDS = [
 ] as const;
 
 const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARD_IDS.map((id, index) => {
-  // 3x2 grid layout in front of user
-  const row = Math.floor(index / 3); // 0 or 1 (top or bottom row)
-  const col = index % 3; // 0, 1, or 2 (left, center, right)
+  // Wide arc layout - all at same height, spread horizontally
+  const radius = 8; // Distance from center
+  const totalCards = TECHNIQUE_CARD_IDS.length;
+  const arcSpan = Math.PI * 0.8; // 144 degrees arc
+  const startAngle = -arcSpan / 2;
+  const angle = startAngle + (arcSpan / (totalCards - 1)) * index;
 
-  const xSpacing = 3.2;
-  const ySpacing = 2.5;
-  const zDistance = -5;
+  const x = Math.sin(angle) * radius;
+  const z = -Math.cos(angle) * radius;
+  const y = CARD_BASE_HEIGHT + 1.5; // Eye level
 
-  // Center the grid horizontally
-  const x = (col - 1) * xSpacing; // -3.2, 0, 3.2
-  const y = CARD_BASE_HEIGHT + 1 - (row * ySpacing); // top row higher, bottom row lower
-  const z = zDistance;
+  // Rotate cards to face center
+  const rotationY = angle;
 
   return {
     id,
     position: [x, y, z],
-    rotation: [0, 0, 0], // All facing forward
-    scale: 1.8,
+    rotation: [0, rotationY, 0],
+    scale: 1.5,
     videoUrl: '/video/latora30.mp4',
   };
 });

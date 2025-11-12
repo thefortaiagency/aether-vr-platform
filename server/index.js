@@ -6,9 +6,13 @@ import OpenAI from 'openai';
 
 dotenv.config();
 
+// Debug: Log the API key being used
+const apiKey = process.env.OPENAI_API_KEY || '';
+console.log(`🔑 OpenAI API Key loaded (last 4 chars): ...${apiKey.slice(-4)}`);
+
 // Initialize OpenAI
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
+  apiKey,
 });
 
 const app = express();
@@ -134,7 +138,8 @@ app.post('/api/vr-coach-chat', async (req, res) => {
     if (!process.env.OPENAI_API_KEY) {
       console.error('OpenAI API key not configured');
       return res.json({
-        response: "Keep working hard! That single leg setup needs to be faster - explode into it!"
+        response: "Keep working hard! That single leg setup needs to be faster - explode into it!",
+        audioUrl: null
       });
     }
 
@@ -166,12 +171,50 @@ app.post('/api/vr-coach-chat', async (req, res) => {
 
     console.log(`💬 Coach Andy: "${message}" → "${response}"`);
 
-    res.json({ response });
+    // Generate audio with ElevenLabs
+    let audioUrl = null;
+    if (process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID) {
+      try {
+        const elevenLabsResponse = await fetch(
+          `https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVENLABS_VOICE_ID}`,
+          {
+            method: 'POST',
+            headers: {
+              'Accept': 'audio/mpeg',
+              'Content-Type': 'application/json',
+              'xi-api-key': process.env.ELEVENLABS_API_KEY
+            },
+            body: JSON.stringify({
+              text: response,
+              model_id: 'eleven_monolingual_v1',
+              voice_settings: {
+                stability: 0.5,
+                similarity_boost: 0.75
+              }
+            })
+          }
+        );
+
+        if (elevenLabsResponse.ok) {
+          const audioBuffer = await elevenLabsResponse.arrayBuffer();
+          const base64Audio = Buffer.from(audioBuffer).toString('base64');
+          audioUrl = `data:audio/mpeg;base64,${base64Audio}`;
+          console.log(`🔊 Generated audio for Coach Andy response`);
+        } else {
+          console.error('❌ ElevenLabs API Error:', elevenLabsResponse.statusText);
+        }
+      } catch (audioError) {
+        console.error('❌ ElevenLabs Error:', audioError);
+      }
+    }
+
+    res.json({ response, audioUrl });
 
   } catch (error) {
     console.error('❌ OpenAI API Error:', error);
     res.json({
-      response: "That's the spirit! Keep grinding and trust the process!"
+      response: "That's the spirit! Keep grinding and trust the process!",
+      audioUrl: null
     });
   }
 });
