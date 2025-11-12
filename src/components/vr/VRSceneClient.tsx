@@ -1256,23 +1256,38 @@ function CoachChatCard({
       <Interactive
         onSelect={(e) => {
           e?.stopPropagation?.();
+          e?.preventDefault?.();
           handleMicClick();
         }}
         onSqueeze={(e) => {
           e?.stopPropagation?.();
+          e?.preventDefault?.();
           handleMicClick();
         }}
       >
         <group position={[0, -cardHeight / 2 - 0.45, CARD_DEPTH / 2 + 0.12]}>
           <mesh
+            onClick={(e) => {
+              e.stopPropagation();
+              e.nativeEvent?.stopImmediatePropagation?.();
+              if (e.nativeEvent?.preventDefault) e.nativeEvent.preventDefault();
+            }}
             onPointerDown={(e) => {
               e.stopPropagation();
               e.nativeEvent?.stopImmediatePropagation?.();
+              if (e.nativeEvent?.preventDefault) e.nativeEvent.preventDefault();
               handleMicClick(e);
             }}
             onPointerUp={(e) => {
               e.stopPropagation();
               e.nativeEvent?.stopImmediatePropagation?.();
+              if (e.nativeEvent?.preventDefault) e.nativeEvent.preventDefault();
+            }}
+            onPointerEnter={(e) => {
+              e.stopPropagation();
+            }}
+            onPointerLeave={(e) => {
+              e.stopPropagation();
             }}
             castShadow
             receiveShadow
@@ -1348,7 +1363,7 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((c
 function VRSceneContent({ backgroundImageUrl, onScreenshot, onBackgroundReady }: VRSceneProps) {
   const [cards, setCards] = React.useState<TechniqueCardState[]>(() => TECHNIQUE_CARD_PRESETS);
   const [coachCardState, setCoachCardState] = React.useState({
-    position: [0, CARD_BASE_HEIGHT + 3.4, -5] as [number, number, number], // Above all cards (centered)
+    position: [0, CARD_BASE_HEIGHT + 4.2, -5] as [number, number, number], // Higher above all cards (centered)
     scale: 0.75,
     rotation: [0, 0, 0] as [number, number, number],
   });
