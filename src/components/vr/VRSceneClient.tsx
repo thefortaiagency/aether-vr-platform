@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, RoundedBox } from '@react-three/drei';
+import { OrbitControls, RoundedBox, Text } from '@react-three/drei';
 import { XR, createXRStore, useXR, Interactive } from '@react-three/xr';
 import * as THREE from 'three';
 import { VRControllerScreenshot } from './VRControllerScreenshot';
@@ -995,6 +995,226 @@ function TechniqueCard({
     </group>
   );
 }
+
+// Coach Andy Chatbot Card - Voice-activated AI coach
+function CoachChatCard() {
+  const [coachResponse, setCoachResponse] = React.useState("Hey wrestler! Ask me anything about technique.");
+  const [isListening, setIsListening] = React.useState(false);
+  const [isProcessing, setIsProcessing] = React.useState(false);
+  const recognitionRef = React.useRef<any>(null);
+
+  // Initialize Web Speech API
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      console.warn('[COACH DEBUG] Speech recognition not supported');
+      setCoachResponse("Voice input not supported in this browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      console.log('[COACH DEBUG] Voice recognition started');
+      setIsListening(true);
+      setCoachResponse("I'm listening...");
+    };
+
+    recognition.onresult = async (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      console.log('[COACH DEBUG] Heard:', transcript);
+      setCoachResponse(`You: "${transcript}"`);
+      setIsProcessing(true);
+
+      try {
+        const response = await fetch('/api/vr-coach-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: transcript }),
+        });
+
+        const data = await response.json();
+        console.log('[COACH DEBUG] Coach responded:', data.response);
+        setCoachResponse(data.response || "Keep working hard!");
+      } catch (error) {
+        console.error('[COACH DEBUG] Error:', error);
+        setCoachResponse("That's the spirit! Keep grinding!");
+      } finally {
+        setIsProcessing(false);
+        setIsListening(false);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('[COACH DEBUG] Speech recognition error:', event.error);
+      setIsListening(false);
+      setIsProcessing(false);
+
+      if (event.error === 'no-speech') {
+        setCoachResponse("Didn't catch that. Try again!");
+      } else if (event.error === 'not-allowed') {
+        setCoachResponse("Microphone access denied. Enable it in settings.");
+      } else {
+        setCoachResponse("Speech error. Click mic to try again.");
+      }
+    };
+
+    recognition.onend = () => {
+      console.log('[COACH DEBUG] Voice recognition ended');
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+    };
+  }, []);
+
+  const handleMicClick = React.useCallback(() => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+    } else if (!isProcessing && recognitionRef.current) {
+      try {
+        recognitionRef.current.start();
+      } catch (error) {
+        console.error('[COACH DEBUG] Failed to start recognition:', error);
+        setCoachResponse("Mic error. Try refreshing the page.");
+      }
+    }
+  }, [isListening, isProcessing]);
+
+  const cardWidth = 3.5;
+  const cardHeight = 2.0;
+  const frameWidth = cardWidth + CARD_BORDER * 2;
+  const frameHeight = cardHeight + CARD_BORDER * 2;
+
+  return (
+    <group position={[0, CARD_BASE_HEIGHT + 2.5, 0]}>
+      {/* Golden outer frame */}
+      <RoundedBox
+        args={[frameWidth + CARD_BORDER * 4, frameHeight + CARD_BORDER * 4, CARD_DEPTH * 0.45]}
+        radius={0.07}
+        smoothness={8}
+      >
+        <meshStandardMaterial
+          color="#d4af37"
+          metalness={0.85}
+          roughness={0.28}
+          emissive="#c28e0e"
+          emissiveIntensity={isListening ? 0.9 : 0.35}
+        />
+      </RoundedBox>
+
+      {/* Dark inner frame */}
+      <RoundedBox
+        args={[frameWidth + CARD_BORDER * 1.4, frameHeight + CARD_BORDER * 1.4, CARD_DEPTH * 0.6]}
+        radius={0.065}
+        smoothness={6}
+        position={[0, 0, -CARD_DEPTH * 0.1]}
+        castShadow
+        receiveShadow
+      >
+        <meshStandardMaterial
+          color="#08090f"
+          metalness={0.45}
+          roughness={0.42}
+          emissive="#101320"
+          emissiveIntensity={0.3}
+        />
+      </RoundedBox>
+
+      {/* Text display area */}
+      <mesh position={[0, 0, CARD_DEPTH / 2 + 0.1]}>
+        <planeGeometry args={[cardWidth, cardHeight]} />
+        <meshBasicMaterial color="#0a0b10" />
+      </mesh>
+
+      {/* Coach Andy title */}
+      <Text
+        position={[0, cardHeight / 2 - 0.2, CARD_DEPTH / 2 + 0.12]}
+        fontSize={0.18}
+        color="#d4af37"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={cardWidth - 0.4}
+      >
+        COACH ANDY
+      </Text>
+
+      {/* Coach response text */}
+      <Text
+        position={[0, 0, CARD_DEPTH / 2 + 0.12]}
+        fontSize={0.13}
+        color="#ffffff"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={cardWidth - 0.4}
+        textAlign="center"
+        lineHeight={1.3}
+      >
+        {coachResponse}
+      </Text>
+
+      {/* Microphone button */}
+      <Interactive
+        onSelect={handleMicClick}
+        onSqueeze={handleMicClick}
+      >
+        <group position={[0, -cardHeight / 2 - 0.45, CARD_DEPTH / 2 + 0.12]}>
+          <mesh
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              handleMicClick();
+            }}
+            castShadow
+            receiveShadow
+          >
+            <cylinderGeometry args={[0.2, 0.2, 0.08, 32]} />
+            <meshStandardMaterial
+              color={isListening ? '#ff4444' : isProcessing ? '#ffaa00' : '#44ff44'}
+              emissive={isListening ? '#ff0000' : isProcessing ? '#ff8800' : '#00ff00'}
+              emissiveIntensity={isListening ? 0.9 : isProcessing ? 0.7 : 0.5}
+              metalness={0.7}
+              roughness={0.3}
+            />
+          </mesh>
+
+          {/* Microphone icon */}
+          <mesh position={[0, 0.11, 0]}>
+            <cylinderGeometry args={[0.05, 0.05, 0.15, 16]} />
+            <meshStandardMaterial color="#111217" metalness={0.25} roughness={0.4} />
+          </mesh>
+          <mesh position={[0, 0.025, 0]}>
+            <sphereGeometry args={[0.06, 16, 16]} />
+            <meshStandardMaterial color="#111217" metalness={0.25} roughness={0.4} />
+          </mesh>
+        </group>
+      </Interactive>
+
+      {/* Status indicator text */}
+      <Text
+        position={[0, -cardHeight / 2 - 0.75, CARD_DEPTH / 2 + 0.12]}
+        fontSize={0.1}
+        color={isListening ? '#ff4444' : isProcessing ? '#ffaa00' : '#44ff44'}
+        anchorX="center"
+        anchorY="middle"
+      >
+        {isListening ? 'LISTENING...' : isProcessing ? 'PROCESSING...' : 'Click mic to talk'}
+      </Text>
+    </group>
+  );
+}
+
 // Draggable 3D Video Panel for VR
 const TECHNIQUE_CARD_IDS = [
   'stance',
@@ -1078,6 +1298,9 @@ function VRSceneContent({ backgroundImageUrl, onScreenshot, onBackgroundReady }:
             onRotationChange={(next) => updateCardRotation(card.id, next)}
           />
         ))}
+
+        {/* Coach Andy chatbot card */}
+        <CoachChatCard />
       </group>
     </>
   );
