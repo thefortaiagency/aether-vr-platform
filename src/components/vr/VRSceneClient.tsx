@@ -903,11 +903,40 @@ function CoachImage() {
 }
 
 // Coach Andy Chatbot Card - Voice-activated AI coach
-function CoachChatCard() {
+interface CoachChatCardProps {
+  position: [number, number, number];
+  scale: number;
+  rotation: [number, number, number];
+  onPositionChange: (position: [number, number, number]) => void;
+  onScaleChange: (scale: number) => void;
+  onRotationChange: (rotation: [number, number, number]) => void;
+}
+
+function CoachChatCard({
+  position,
+  scale,
+  rotation,
+  onPositionChange,
+  onScaleChange,
+  onRotationChange,
+}: CoachChatCardProps) {
   const [coachResponse, setCoachResponse] = React.useState("Hey wrestler! Ask me anything about technique.");
   const [isListening, setIsListening] = React.useState(false);
   const [isProcessing, setIsProcessing] = React.useState(false);
   const recognitionRef = React.useRef<any>(null);
+
+  // Drag handling
+  const cardRef = React.useRef<THREE.Group>(null);
+  const dragPlaneRef = React.useRef(new THREE.Plane(new THREE.Vector3(0, 0, 1), -position[2]));
+  const intersectionPoint = React.useMemo(() => new THREE.Vector3(), []);
+  const pointerIdRef = React.useRef<number | null>(null);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const [isHovered, setIsHovered] = React.useState(false);
+  const didDragRef = React.useRef(false);
+
+  React.useEffect(() => {
+    dragPlaneRef.current.constant = -position[2];
+  }, [position[2]]);
 
   // Initialize Web Speech API
   React.useEffect(() => {
@@ -999,7 +1028,10 @@ function CoachChatCard() {
     };
   }, []);
 
-  const handleMicClick = React.useCallback(() => {
+  const handleMicClick = React.useCallback((e?: any) => {
+    if (e) {
+      e.stopPropagation();
+    }
     if (isListening) {
       recognitionRef.current?.stop();
     } else if (!isProcessing && recognitionRef.current) {
@@ -1022,9 +1054,120 @@ function CoachChatCard() {
   const cardHeight = 2.0;
   const frameWidth = cardWidth + CARD_BORDER * 2;
   const frameHeight = cardHeight + CARD_BORDER * 2;
+  const glowLevel = isDragging ? 0.5 : isHovered ? 0.28 : 0.14;
+
+  // Drag handlers
+  const releasePointerCapture = React.useCallback((event: any) => {
+    if (pointerIdRef.current !== null && event?.target?.releasePointerCapture) {
+      try {
+        event.target.releasePointerCapture(pointerIdRef.current);
+      } catch (error) {
+        // Some XR controllers do not support releasePointerCapture
+      }
+    }
+    pointerIdRef.current = null;
+  }, []);
+
+  const getWorldPoint = React.useCallback(
+    (event: any) => {
+      if (event?.point) {
+        return event.point.clone();
+      }
+      if (event?.intersections?.[0]?.point) {
+        return event.intersections[0].point.clone();
+      }
+      if (event?.ray) {
+        const plane = dragPlaneRef.current;
+        if (event.ray.intersectPlane(plane, intersectionPoint)) {
+          return intersectionPoint.clone();
+        }
+      }
+      return null;
+    },
+    [intersectionPoint]
+  );
+
+  const handlePointerDown = React.useCallback(
+    (event: any) => {
+      event.stopPropagation();
+      setIsDragging(true);
+      didDragRef.current = false;
+      setIsHovered(true);
+
+      const pointerId =
+        typeof event.pointerId === 'number'
+          ? event.pointerId
+          : typeof event?.nativeEvent?.pointerId === 'number'
+          ? event.nativeEvent.pointerId
+          : null;
+
+      if (pointerId !== null) {
+        pointerIdRef.current = pointerId;
+        if (event.target?.setPointerCapture) {
+          try {
+            event.target.setPointerCapture(pointerId);
+          } catch (error) {
+            // Ignore setPointerCapture errors in XR
+          }
+        }
+      }
+    },
+    []
+  );
+
+  const endDrag = React.useCallback(
+    (event: any) => {
+      if (event) {
+        releasePointerCapture(event);
+      }
+      setIsDragging(false);
+    },
+    [releasePointerCapture]
+  );
+
+  const handlePointerUp = React.useCallback(
+    (event: any) => {
+      event.stopPropagation();
+      endDrag(event);
+    },
+    [endDrag]
+  );
+
+  const handlePointerMove = React.useCallback(
+    (event: any) => {
+      if (!isDragging) {
+        return;
+      }
+
+      event.stopPropagation();
+      const world = getWorldPoint(event);
+      if (world) {
+        onPositionChange([world.x, world.y, world.z]);
+        didDragRef.current = true;
+      }
+    },
+    [getWorldPoint, isDragging, onPositionChange]
+  );
+
+  const handlePointerCancel = React.useCallback(
+    (event: any) => {
+      endDrag(event);
+    },
+    [endDrag]
+  );
+
+  const handlePointerOver = React.useCallback(() => {
+    setIsHovered(true);
+  }, []);
+
+  const handlePointerOut = React.useCallback(() => {
+    if (!isDragging) {
+      setIsHovered(false);
+    }
+  }, [isDragging]);
 
   return (
-    <group position={[5.8, CARD_BASE_HEIGHT + 1.2, -5]}>
+    <group ref={cardRef} position={position} rotation={rotation} scale={scale}>
       {/* Golden outer frame */}
       <RoundedBox
         args={[frameWidth + CARD_BORDER * 4, frameHeight + CARD_BORDER * 4, CARD_DEPTH * 0.45]}
@@ -1036,9 +1179,23 @@ function CoachChatCard() {
           metalness={0.85}
           roughness={0.28}
           emissive="#c28e0e"
-          emissiveIntensity={isListening ? 0.9 : 0.35}
+          emissiveIntensity={isListening ? 0.9 : (0.25 + glowLevel)}
         />
       </RoundedBox>
+
+      {/* Draggable area - invisible plane for dragging */}
+      <mesh
+        position={[0, 0, CARD_DEPTH / 2 + 0.1]}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerMove={handlePointerMove}
+        onPointerCancel={handlePointerCancel}
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
+      >
+        <planeGeometry args={[frameWidth, frameHeight]} />
+        <meshBasicMaterial transparent opacity={0} />
+      </mesh>
 
       {/* Dark inner frame */}
       <RoundedBox
@@ -1097,14 +1254,19 @@ function CoachChatCard() {
 
       {/* Microphone button */}
       <Interactive
-        onSelect={handleMicClick}
-        onSqueeze={handleMicClick}
+        onSelect={() => handleMicClick()}
+        onSqueeze={() => handleMicClick()}
       >
         <group position={[0, -cardHeight / 2 - 0.45, CARD_DEPTH / 2 + 0.12]}>
           <mesh
             onPointerDown={(e) => {
               e.stopPropagation();
-              handleMicClick();
+              e.nativeEvent?.stopImmediatePropagation?.();
+              handleMicClick(e);
+            }}
+            onPointerUp={(e) => {
+              e.stopPropagation();
+              e.nativeEvent?.stopImmediatePropagation?.();
             }}
             castShadow
             receiveShadow
@@ -1171,6 +1333,11 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((c
 // Main VR Scene Content
 function VRSceneContent({ backgroundImageUrl, onScreenshot, onBackgroundReady }: VRSceneProps) {
   const [cards, setCards] = React.useState<TechniqueCardState[]>(() => TECHNIQUE_CARD_PRESETS);
+  const [coachCardState, setCoachCardState] = React.useState({
+    position: [5.8, CARD_BASE_HEIGHT + 1.2, -5] as [number, number, number],
+    scale: 0.75,
+    rotation: [0, 0, 0] as [number, number, number],
+  });
   const { isPresenting } = useXR();
 
   const updateCardPosition = React.useCallback((id: string, position: [number, number, number]) => {
@@ -1193,6 +1360,18 @@ function VRSceneContent({ backgroundImageUrl, onScreenshot, onBackgroundReady }:
     },
     []
   );
+
+  const updateCoachPosition = React.useCallback((position: [number, number, number]) => {
+    setCoachCardState((prev) => ({ ...prev, position }));
+  }, []);
+
+  const updateCoachScale = React.useCallback((scale: number) => {
+    setCoachCardState((prev) => ({ ...prev, scale }));
+  }, []);
+
+  const updateCoachRotation = React.useCallback((rotation: [number, number, number]) => {
+    setCoachCardState((prev) => ({ ...prev, rotation }));
+  }, []);
 
   return (
     <>
@@ -1228,7 +1407,14 @@ function VRSceneContent({ backgroundImageUrl, onScreenshot, onBackgroundReady }:
         ))}
 
         {/* Coach Andy chatbot card */}
-        <CoachChatCard />
+        <CoachChatCard
+          position={coachCardState.position}
+          scale={coachCardState.scale}
+          rotation={coachCardState.rotation}
+          onPositionChange={updateCoachPosition}
+          onScaleChange={updateCoachScale}
+          onRotationChange={updateCoachRotation}
+        />
       </group>
     </>
   );
