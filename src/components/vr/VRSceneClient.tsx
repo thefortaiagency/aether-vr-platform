@@ -227,24 +227,23 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
             <planeGeometry args={[100, 100]} />
             <meshBasicMaterial color={0x1a1a2e} />
           </mesh>
-
-          {/* Bright reference cubes - easily visible */}
-          <mesh position={[0, 1.6, -2]}>
-            <boxGeometry args={[0.5, 0.5, 0.5]} />
-            <meshBasicMaterial color={0xff0000} />
-          </mesh>
-
-          <mesh position={[-2, 1.6, -2]}>
-            <boxGeometry args={[0.5, 0.5, 0.5]} />
-            <meshBasicMaterial color={0x00ff00} />
-          </mesh>
-
-          <mesh position={[2, 1.6, -2]}>
-            <boxGeometry args={[0.5, 0.5, 0.5]} />
-            <meshBasicMaterial color={0x0000ff} />
-          </mesh>
         </>
       )}
+
+      {/* 6 Technique Videos in Circle Formation - Movable/Resizable */}
+      {videoEnabled && techniqueVideos.map((video, index) => {
+        const x = Math.sin(video.angle) * radius;
+        const z = Math.cos(video.angle) * radius;
+        return (
+          <VideoTextureSimple
+            key={`technique-${index}`}
+            position={[x, videoHeight, -z]}
+            rotation={[0, -video.angle, 0]}
+            videoUrl="/video/latora30.mp4"
+            title={video.name}
+          />
+        );
+      })}
 
       {/* 360° BACKGROUND - WebXR Layer (compositor-rendered, saves ~8MB GPU memory) */}
       {backgroundImageUrl && supportsXRLayers() && (

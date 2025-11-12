@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
+import { useXR } from '@react-three/xr';
 import * as THREE from 'three';
 
 interface VideoTextureProps {
@@ -11,11 +12,22 @@ interface VideoTextureProps {
   title?: string;
 }
 
-export function VideoTextureSimple({ position, rotation, videoUrl }: VideoTextureProps) {
+export function VideoTextureSimple({ position: initialPosition, rotation = [0, 0, 0], videoUrl, title }: VideoTextureProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const textureRef = useRef<THREE.VideoTexture | null>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
   const [videoTexture, setVideoTexture] = useState<THREE.VideoTexture | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // Movable/Resizable state
+  const [position, setPosition] = useState<[number, number, number]>(initialPosition);
+  const [scale, setScale] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const { camera } = useThree();
+  const { isPresenting } = useXR();
 
   useEffect(() => {
     let mounted = true;
@@ -83,6 +95,33 @@ export function VideoTextureSimple({ position, rotation, videoUrl }: VideoTextur
     }
   });
 
+  // Handle pointer down (start drag)
+  const handlePointerDown = (e: any) => {
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  // Handle pointer up (end drag)
+  const handlePointerUp = (e: any) => {
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  // Handle pointer move (drag)
+  const handlePointerMove = (e: any) => {
+    if (isDragging && e.point) {
+      e.stopPropagation();
+      setPosition([e.point.x, e.point.y, e.point.z]);
+    }
+  };
+
+  // Handle mouse wheel (resize)
+  const handleWheel = (e: any) => {
+    e.stopPropagation();
+    const delta = e.delta;
+    setScale(prev => Math.max(0.5, Math.min(3, prev + delta * 0.001)));
+  };
+
   if (!videoTexture || !isLoaded) {
     console.log('[SIMPLE] Not rendering - waiting for video');
     return null;
@@ -90,14 +129,58 @@ export function VideoTextureSimple({ position, rotation, videoUrl }: VideoTextur
 
   console.log('[SIMPLE] Rendering video panel');
 
+  const baseWidth = 3.2;
+  const baseHeight = 2;
+
   return (
-    <mesh position={position} rotation={rotation}>
-      <planeGeometry args={[3.2, 2]} />
-      <meshBasicMaterial
-        map={videoTexture}
-        toneMapped={false}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
+    <group
+      ref={groupRef}
+      position={position}
+      rotation={rotation}
+      scale={scale}
+    >
+      {/* Video mesh */}
+      <mesh
+        ref={meshRef}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerMove={handlePointerMove}
+        onPointerEnter={() => setIsHovered(true)}
+        onPointerLeave={() => setIsHovered(false)}
+        onWheel={handleWheel}
+      >
+        <planeGeometry args={[baseWidth, baseHeight]} />
+        <meshBasicMaterial
+          map={videoTexture}
+          toneMapped={false}
+          side={THREE.DoubleSide}
+          opacity={isDragging ? 0.7 : 1}
+          transparent
+        />
+      </mesh>
+
+      {/* Glowing frame when hovered or dragging */}
+      {(isHovered || isDragging) && (
+        <mesh position={[0, 0, -0.01]}>
+          <planeGeometry args={[baseWidth + 0.1, baseHeight + 0.1]} />
+          <meshBasicMaterial
+            color={isDragging ? 0xFFD700 : 0x00FFFF}
+            emissive={isDragging ? 0xFFD700 : 0x00FFFF}
+            emissiveIntensity={0.5}
+            transparent
+            opacity={0.3}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
+
+      {/* Title label when in VR */}
+      {isPresenting && title && (
+        <mesh position={[0, baseHeight / 2 + 0.3, 0.01]}>
+          <planeGeometry args={[baseWidth, 0.2]} />
+          <meshBasicMaterial color={0x000000} opacity={0.5} transparent />
+        </mesh>
+      )}
+    </group>
   );
 }
