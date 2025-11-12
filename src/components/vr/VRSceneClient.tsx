@@ -673,14 +673,10 @@ function TechniqueCard({
   const handlePointerUp = React.useCallback(
     (event: any) => {
       event.stopPropagation();
-      const didDrag = didDragRef.current;
       endDrag(event);
-
-      if (!didDrag) {
-        toggle();
-      }
+      // Removed toggle() - use play/pause button instead
     },
-    [endDrag, toggle]
+    [endDrag]
   );
 
   const handlePointerMove = React.useCallback(
@@ -1010,7 +1006,7 @@ function CoachChatCard() {
   const frameHeight = cardHeight + CARD_BORDER * 2;
 
   return (
-    <group position={[0, CARD_BASE_HEIGHT + 2.5, 0]}>
+    <group position={[5.8, CARD_BASE_HEIGHT + 1.2, -5]}>
       {/* Golden outer frame */}
       <RoundedBox
         args={[frameWidth + CARD_BORDER * 4, frameHeight + CARD_BORDER * 4, CARD_DEPTH * 0.45]}
@@ -1116,17 +1112,6 @@ function CoachChatCard() {
           </mesh>
         </group>
       </Interactive>
-
-      {/* Status indicator text */}
-      <Text
-        position={[0, -cardHeight / 2 - 0.75, CARD_DEPTH / 2 + 0.12]}
-        fontSize={0.1}
-        color={isListening ? '#ff4444' : isProcessing ? '#ffaa00' : '#44ff44'}
-        anchorX="center"
-        anchorY="middle"
-      >
-        {isListening ? 'LISTENING...' : isProcessing ? 'PROCESSING...' : 'Click mic to talk'}
-      </Text>
     </group>
   );
 }
