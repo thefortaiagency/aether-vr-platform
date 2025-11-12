@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from './components/ui/button';
 import {
   Video,
@@ -18,8 +18,7 @@ function VRTraining() {
   const userName = urlParams.get('user') || 'Wrestler';
 
   const [showCoach, setShowCoach] = useState(true);
-  const [showTechnique, setShowTechnique] = useState(false); // OFF by default - mirror shows first
-  const [showMirror, setShowMirror] = useState(true);
+  const [showTechnique, setShowTechnique] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [recording, setRecording] = useState(false);
@@ -29,39 +28,8 @@ function VRTraining() {
   const [vrActive, setVRActive] = useState(false);
   const [generatingBackground, setGeneratingBackground] = useState(false);
 
-  // Camera selection
-  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
-  const [selectedCameraIndex, setSelectedCameraIndex] = useState(0);
-
   // Ref to access the VR scene container
   const sceneContainerRef = useRef<HTMLDivElement>(null);
-
-  // Enumerate available cameras on mount
-  useEffect(() => {
-    const getCameras = async () => {
-      try {
-        // Request permission first
-        await navigator.mediaDevices.getUserMedia({ video: true });
-
-        // Then enumerate devices
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        setAvailableCameras(videoDevices);
-        console.log('📹 Found cameras:', videoDevices.map(d => d.label));
-      } catch (error) {
-        console.error('❌ Error enumerating cameras:', error);
-      }
-    };
-
-    getCameras();
-  }, []);
-
-  const cycleCamera = () => {
-    if (availableCameras.length > 0) {
-      setSelectedCameraIndex((prev) => (prev + 1) % availableCameras.length);
-      console.log('📹 Switched to camera:', availableCameras[(selectedCameraIndex + 1) % availableCameras.length]?.label);
-    }
-  };
 
   const generateBackground = async () => {
     setGeneratingBackground(true);
@@ -187,14 +155,12 @@ function VRTraining() {
           activeExercise="stance"
           showCoach={showCoach}
           videoEnabled={showTechnique}
-          showMirror={showMirror}
           onVRStart={() => setVRActive(true)}
           onVREnd={() => setVRActive(false)}
           backgroundImageUrl={backgroundImageUrl}
           roomName={roomName}
           userName={userName}
           onScreenshot={takeScreenshot}
-          cameraDeviceId={availableCameras[selectedCameraIndex]?.deviceId}
         />
       </div>
 
@@ -260,29 +226,6 @@ function VRTraining() {
         >
           {showTechnique ? 'Hide Video' : 'Show Video'}
         </Button>
-
-        {/* Toggle Avatar Mirror */}
-        <Button
-          onClick={() => setShowMirror(!showMirror)}
-          size="lg"
-          variant={showMirror ? "default" : "outline"}
-          className="rounded-full px-6 bg-blue-600 hover:bg-blue-700"
-        >
-          {showMirror ? 'Hide Mirror' : 'Show Mirror'}
-        </Button>
-
-        {/* Switch Camera Button */}
-        {availableCameras.length > 1 && (
-          <Button
-            onClick={cycleCamera}
-            size="lg"
-            variant="outline"
-            className="rounded-full px-6"
-            title={`Current: ${availableCameras[selectedCameraIndex]?.label || 'Default'}`}
-          >
-            📹 Switch Camera ({selectedCameraIndex + 1}/{availableCameras.length})
-          </Button>
-        )}
 
         {/* Record Button */}
         <Button

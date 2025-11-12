@@ -3,17 +3,11 @@
 import React from 'react';
 import { Canvas } from '@react-three/fiber';
 import { XR, createXRStore } from '@react-three/xr';
-import { ensureCameraAccessFeature } from '@/lib/xr-camera-access';
-
-if (typeof window !== 'undefined') {
-  ensureCameraAccessFeature();
-}
 
 interface VRSceneProps {
   activeExercise: string;
   showCoach: boolean;
   videoEnabled: boolean;
-  showMirror?: boolean;
   onVRStart: () => void;
   onVREnd: () => void;
   backgroundImageUrl?: string;

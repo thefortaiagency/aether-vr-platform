@@ -2,35 +2,24 @@
 
 import React from 'react';
 import { Canvas } from '@react-three/fiber';
-import { XR, createXRStore, useXR } from '@react-three/xr';
+import { Text } from '@react-three/drei';
+import { XR, createXRStore } from '@react-three/xr';
 import * as THREE from 'three';
-import { TwilioVideoTexture } from './TwilioVideoTexture';
-// import { TwilioVideoLayer } from './TwilioVideoLayer'; // For VR headset testing
-import { VideoTexture } from './VideoTexture';
 import { VRControllerScreenshot } from './VRControllerScreenshot';
-import { AvatarMirror } from './AvatarMirror';
-import { WebcamXRLayer } from './WebcamXRLayer';
-import { BackgroundXRLayer } from './BackgroundXRLayer';
-import { VideoXRLayer } from './VideoXRLayer';
-import { updateLayerStack, supportsXRLayers } from '@/lib/xr-layers';
-import { ensureCameraAccessFeature } from '@/lib/xr-camera-access';
 
-if (typeof window !== 'undefined') {
-  ensureCameraAccessFeature();
-}
+const CARD_BASE_SIZE: [number, number] = [1.6, 0.95];
+const CARD_DEPTH = 0.06;
 
 interface VRSceneProps {
   activeExercise: string;
   showCoach: boolean;
   videoEnabled: boolean;
-  showMirror?: boolean; // Avatar mirror with pose tracking
   onVRStart: () => void;
   onVREnd: () => void;
   backgroundImageUrl?: string;
   roomName?: string;
   userName?: string;
-  onScreenshot?: () => void; // Add screenshot callback
-  cameraDeviceId?: string; // Camera selection for mirror
+  onScreenshot?: () => void;
 }
 
 // Create XR store OUTSIDE component to prevent recreation on re-renders
@@ -39,70 +28,56 @@ const xrStore = createXRStore({
   foveation: 0, // Disable foveated rendering for better quality
 });
 
-// Gymnasium Environment - Curved background screen for VR (not full 360°)
-function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
-  const [texture, setTexture] = React.useState<THREE.Texture | null>(null);
+// Gymnasium Environment - Curved background screen for VR (full 360° equirect image)
+function EquirectBackground({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
+  const textureRef = React.useRef<THREE.Texture | null>(null);
+  const [ready, setReady] = React.useState(false);
 
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    console.log('[GYMNASIUM] Background URL:', backgroundImageUrl);
-
     if (!backgroundImageUrl) {
-      console.log('[GYMNASIUM] No background URL provided');
-      setTexture(null);
+      textureRef.current = null;
+      setReady(false);
       return;
     }
 
-    console.log('[GYMNASIUM] Loading texture from:', backgroundImageUrl);
+    let disposed = false;
     const loader = new THREE.TextureLoader();
 
-    let loadedTexture: THREE.Texture | null = null;
-
+    loader.setCrossOrigin('anonymous');
     loader.load(
       backgroundImageUrl,
-      // onLoad - Success callback
       (tex) => {
-        console.log('[GYMNASIUM] ✅ Texture loaded successfully');
-        console.log('[GYMNASIUM] Image dimensions:', tex.image.width, 'x', tex.image.height);
-
+        if (disposed) return;
         tex.colorSpace = THREE.SRGBColorSpace;
-        tex.minFilter = THREE.LinearFilter;
-        tex.magFilter = THREE.LinearFilter;
-        tex.needsUpdate = true;
-
-        loadedTexture = tex;
-        setTexture(tex);
-        console.log('[GYMNASIUM] ✅ Texture state updated, should render background');
+        tex.wrapS = THREE.ClampToEdgeWrapping;
+        tex.wrapT = THREE.ClampToEdgeWrapping;
+        tex.mapping = THREE.EquirectangularReflectionMapping;
+        textureRef.current = tex;
+        setReady(true);
       },
-      // onProgress - Loading callback
-      (xhr) => {
-        const percentComplete = xhr.total > 0 ? (xhr.loaded / xhr.total) * 100 : 0;
-        console.log('[GYMNASIUM] Loading progress:', percentComplete.toFixed(0) + '%');
-      },
-      // onError - Error callback
+      undefined,
       (error) => {
-        console.error('[GYMNASIUM] ❌ Failed to load texture:', error);
-        console.error('[GYMNASIUM] ❌ URL was:', backgroundImageUrl);
+        console.error('[VR BACKGROUND] Failed to load 360 asset', error);
+        textureRef.current = null;
+        setReady(false);
       }
     );
 
     return () => {
-      console.log('[GYMNASIUM] Cleanup - disposing texture');
-      if (loadedTexture) {
-        loadedTexture.dispose();
+      disposed = true;
+      if (textureRef.current) {
+        textureRef.current.dispose();
+        textureRef.current = null;
       }
     };
   }, [backgroundImageUrl]);
 
-  console.log('[GYMNASIUM] Rendering - texture exists:', !!texture);
-
   return (
     <mesh>
-      <sphereGeometry args={[50, 64, 64]} />
+      <sphereGeometry args={[60, 64, 64]} />
       <meshBasicMaterial
-        map={texture ?? undefined}
-        color={texture ? 0xffffff : 0x1a1a2e}
+        map={ready ? textureRef.current ?? undefined : undefined}
+        color={ready ? 0xffffff : 0x101020}
         side={THREE.BackSide}
         toneMapped={false}
       />
@@ -110,97 +85,253 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
   );
 }
 
-// Draggable 3D Video Panel for VR
-function VideoPanel({ position: initialPosition, rotation, title }: { position: [number, number, number], rotation?: [number, number, number], title: string }) {
-  const meshRef = React.useRef<THREE.Mesh>(null);
-  const [position, setPosition] = React.useState<[number, number, number]>(initialPosition);
+type TechniqueCardState = {
+  id: string;
+  title: string;
+  description: string;
+  position: [number, number, number];
+  rotation: [number, number, number];
+  scale: number;
+  color: string;
+};
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+interface TechniqueCardProps extends TechniqueCardState {
+  onPositionChange: (position: [number, number, number]) => void;
+  onScaleChange: (scale: number) => void;
+}
+
+function TechniqueCard({
+  title,
+  description,
+  position,
+  rotation,
+  scale,
+  color,
+  onPositionChange,
+  onScaleChange,
+}: TechniqueCardProps) {
+  const cardRef = React.useRef<THREE.Group>(null);
+  const dragPlane = React.useMemo(() => new THREE.Plane(new THREE.Vector3(0, 0, 1), position[2]), [position]);
+  const intersectionPoint = React.useMemo(() => new THREE.Vector3(), []);
+  const raycaster = React.useMemo(() => new THREE.Raycaster(), []);
   const [isDragging, setIsDragging] = React.useState(false);
+  const lastPointerId = React.useRef<number | null>(null);
 
-  const handlePointerDown = () => {
+  const handlePointerDown = (event: any) => {
+    event.stopPropagation();
     setIsDragging(true);
+    lastPointerId.current = event.pointerId ?? null;
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (event: any) => {
+    event.stopPropagation();
     setIsDragging(false);
+    if (lastPointerId.current !== null && event.target?.releasePointerCapture) {
+      try {
+        event.target.releasePointerCapture(lastPointerId.current);
+      } catch (err) {
+        // Some XR inputs do not support releasePointerCapture
+      }
+    }
+    lastPointerId.current = null;
   };
 
-  const handlePointerMove = (e: any) => {
-    if (isDragging && e.point) {
-      setPosition([e.point.x, e.point.y, e.point.z]);
+  const handlePointerMove = (event: any) => {
+    if (!isDragging) return;
+    event.stopPropagation();
+
+    if (!cardRef.current) return;
+
+    const pointer = event.intersections?.[0]?.point ?? event.point;
+
+    if (pointer) {
+      onPositionChange([pointer.x, pointer.y, position[2]]);
+      return;
+    }
+
+    if (event.ray) {
+      raycaster.ray.origin.copy(event.ray.origin);
+      raycaster.ray.direction.copy(event.ray.direction);
+      raycaster.ray.intersectPlane(dragPlane, intersectionPoint);
+      if (!Number.isNaN(intersectionPoint.x)) {
+        onPositionChange([intersectionPoint.x, intersectionPoint.y, position[2]]);
+      }
     }
   };
 
+  const adjustScale = (delta: number) => {
+    const next = clamp(scale + delta, 0.6, 1.8);
+    onScaleChange(next);
+  };
+
+  const handleWheel = (event: any) => {
+    event.stopPropagation();
+    const delta = event.deltaY ?? 0;
+    if (delta === 0) return;
+    adjustScale(delta < 0 ? 0.05 : -0.05);
+  };
+
   return (
-    <group position={position} rotation={rotation}>
-      {/* Video placeholder */}
-      <mesh
-        ref={meshRef}
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-        onPointerMove={handlePointerMove}
-      >
-        <planeGeometry args={[2, 1.2]} />
-        <meshBasicMaterial
-          color={isDragging ? "#FFD700" : "#1a1a1a"}
-          opacity={isDragging ? 0.8 : 1}
-          transparent
-        />
-      </mesh>
-
-      {/* Glowing frame for VR visibility */}
-      <mesh position={[0, 0, -0.01]}>
-        <planeGeometry args={[2.1, 1.3]} />
-        <meshBasicMaterial
-          color={isDragging ? "#FFD700" : "#00FFFF"}
-          emissive={isDragging ? "#FFD700" : "#00FFFF"}
-          emissiveIntensity={0.5}
-          transparent
-          opacity={0.3}
-        />
-      </mesh>
-
-      {/* Drag hint text */}
-      {!isDragging && (
-        <mesh position={[0, -0.7, 0.01]}>
-          <planeGeometry args={[1.8, 0.2]} />
-          <meshBasicMaterial color="#000" opacity={0.5} transparent />
+    <group ref={cardRef} position={position} rotation={rotation} scale={scale}>
+      <group>
+        <mesh
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onPointerMove={handlePointerMove}
+          onPointerCancel={handlePointerUp}
+          onWheel={handleWheel}
+        >
+          <boxGeometry args={[CARD_BASE_SIZE[0], CARD_BASE_SIZE[1], CARD_DEPTH]} />
+          <meshStandardMaterial
+            color={color}
+            metalness={0.1}
+            roughness={0.35}
+            transparent
+            opacity={isDragging ? 0.75 : 0.95}
+          />
         </mesh>
-      )}
+
+        {/* Front face */}
+        <mesh position={[0, 0, CARD_DEPTH / 2 + 0.002]}>
+          <planeGeometry args={[CARD_BASE_SIZE[0] * 0.96, CARD_BASE_SIZE[1] * 0.86]} />
+          <meshBasicMaterial color="#0f172a" opacity={0.92} transparent />
+        </mesh>
+
+        <Text
+          position={[0, CARD_BASE_SIZE[1] * 0.23, CARD_DEPTH / 2 + 0.01]}
+          fontSize={0.12}
+          maxWidth={CARD_BASE_SIZE[0] * 0.8}
+          color="white"
+          anchorX="center"
+          anchorY="middle"
+        >
+          {title}
+        </Text>
+
+        <Text
+          position={[0, -CARD_BASE_SIZE[1] * 0.05, CARD_DEPTH / 2 + 0.01]}
+          fontSize={0.085}
+          maxWidth={CARD_BASE_SIZE[0] * 0.82}
+          lineHeight={1.2}
+          color="#9ca3af"
+          anchorX="center"
+          anchorY="middle"
+        >
+          {description}
+        </Text>
+
+        <group position={[CARD_BASE_SIZE[0] / 2 + 0.05, 0, CARD_DEPTH / 2 + 0.015]}>
+          <mesh
+            position={[0, 0.18, 0]}
+            scale={[0.3, 0.3, 0.3]}
+            onPointerDown={(event: any) => {
+              event.stopPropagation();
+              adjustScale(0.08);
+            }}
+          >
+            <boxGeometry args={[0.25, 0.1, 0.05]} />
+            <meshStandardMaterial color="#22d3ee" emissive="#0891b2" emissiveIntensity={0.8} />
+            <Text position={[0, 0, 0.03]} fontSize={0.07} color="#0f172a" anchorX="center" anchorY="middle">
+              +
+            </Text>
+          </mesh>
+          <mesh
+            position={[0, -0.18, 0]}
+            scale={[0.3, 0.3, 0.3]}
+            onPointerDown={(event: any) => {
+              event.stopPropagation();
+              adjustScale(-0.08);
+            }}
+          >
+            <boxGeometry args={[0.25, 0.1, 0.05]} />
+            <meshStandardMaterial color="#facc15" emissive="#ca8a04" emissiveIntensity={0.7} />
+            <Text position={[0, 0, 0.03]} fontSize={0.07} color="#0f172a" anchorX="center" anchorY="middle">
+              -
+            </Text>
+          </mesh>
+        </group>
+      </group>
     </group>
   );
 }
 
+// Draggable 3D Video Panel for VR
+const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = [
+  {
+    id: 'stance',
+    title: 'Athletic Stance',
+    description: 'Knees bent, chest over toes, hands ready. Drive from hips and keep weight centered.',
+    position: [-2.2, 1.5, -3.2],
+    rotation: [0, Math.PI / 14, 0],
+    scale: 1,
+    color: '#1f2937',
+  },
+  {
+    id: 'hand-fight',
+    title: 'Hand Fighting',
+    description: 'Win inside ties. Snap, club, and clear wrists until you feel the opening.',
+    position: [-0.8, 1.7, -3],
+    rotation: [0, Math.PI / 26, 0],
+    scale: 1,
+    color: '#1f2a44',
+  },
+  {
+    id: 'setup',
+    title: 'Shot Setups',
+    description: 'Change levels, fake high, shoot through. Eyes up and trail leg tight.',
+    position: [0.6, 1.55, -3],
+    rotation: [0, -Math.PI / 26, 0],
+    scale: 1,
+    color: '#1d3557',
+  },
+  {
+    id: 'finish',
+    title: 'Finish Mechanics',
+    description: 'Cut the corner, head in the ribs, climb the body. Never stay on your knees.',
+    position: [2, 1.45, -3.1],
+    rotation: [0, -Math.PI / 18, 0],
+    scale: 1,
+    color: '#14213d',
+  },
+  {
+    id: 'mat-return',
+    title: 'Mat Return',
+    description: 'Lift with legs, block hips, return with control. Land them flat every time.',
+    position: [-1.3, 0.65, -2.8],
+    rotation: [0, Math.PI / 20, 0],
+    scale: 0.95,
+    color: '#1c1f3a',
+  },
+  {
+    id: 'chain',
+    title: 'Chain Wrestling',
+    description: 'Two steps ahead. Flow from setups to finishes to rides without pausing.',
+    position: [1.1, 0.7, -2.9],
+    rotation: [0, -Math.PI / 28, 0],
+    scale: 0.98,
+    color: '#192742',
+  },
+];
+
 // Main VR Scene Content
-function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirror = true, roomName, userName, onScreenshot, cameraDeviceId }: VRSceneProps) {
-  const [layers, setLayers] = React.useState<{
-    background: XREquirectLayer | null;
-    technique: XRQuadLayer | null;
-    webcam: XRQuadLayer | null;
-  }>({
-    background: null,
-    technique: null,
-    webcam: null,
-  });
+function VRSceneContent({ backgroundImageUrl, onScreenshot }: VRSceneProps) {
+  const [cards, setCards] = React.useState<TechniqueCardState[]>(() => TECHNIQUE_CARD_PRESETS);
 
-  const { session, isPresenting } = useXR();
-  const showXrEnvironment = Boolean(session && isPresenting);
-  const xrLayersSupported = React.useMemo(() => supportsXRLayers(), []);
+  const updateCardPosition = React.useCallback((id: string, position: [number, number, number]) => {
+    setCards((prev) =>
+      prev.map((card) => (card.id === id ? { ...card, position } : card))
+    );
+  }, []);
 
-  // Update layer stack when layers change
-  React.useEffect(() => {
-    if (!session || !xrLayersSupported) return;
-
-    const layerArray = [
-      layers.background,
-      layers.technique,
-      layers.webcam,
-    ].filter((layer): layer is XRLayer => layer !== null);
-
-    if (layerArray.length > 0) {
-      console.log('[VR SCENE] Updating layer stack with', layerArray.length, 'layers');
-      updateLayerStack(session, layerArray);
-    }
-  }, [session, layers.background, layers.technique, layers.webcam, xrLayersSupported]);
+  const updateCardScale = React.useCallback((id: string, scale: number) => {
+    setCards((prev) =>
+      prev.map((card) => (card.id === id ? { ...card, scale } : card))
+    );
+  }, []);
 
   return (
     <>
@@ -211,110 +342,23 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
       <ambientLight intensity={1.0} />
       <directionalLight position={[0, 10, 0]} intensity={1.0} />
 
-      {showXrEnvironment && (
-        <>
-          {/* Textured gym background when XR layers are unavailable */}
-          {backgroundImageUrl && (!xrLayersSupported || !layers.background) ? (
-            <Gymnasium backgroundImageUrl={backgroundImageUrl} />
-          ) : (
-            <mesh>
-              <sphereGeometry args={[50, 32, 32]} />
-              <meshBasicMaterial color={0x0a0a15} side={THREE.BackSide} />
-            </mesh>
-          )}
+      <EquirectBackground backgroundImageUrl={backgroundImageUrl} />
 
-          {/* Floor */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-            <planeGeometry args={[100, 100]} />
-            <meshBasicMaterial color={0x1a1a2e} />
-          </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
+        <planeGeometry args={[120, 120]} />
+        <meshStandardMaterial color="#0b1120" />
+      </mesh>
 
-          {/* Bright reference cubes - easily visible */}
-          <mesh position={[0, 1.6, -2]}>
-            <boxGeometry args={[0.5, 0.5, 0.5]} />
-            <meshBasicMaterial color={0xff0000} />
-          </mesh>
-
-          <mesh position={[-2, 1.6, -2]}>
-            <boxGeometry args={[0.5, 0.5, 0.5]} />
-            <meshBasicMaterial color={0x00ff00} />
-          </mesh>
-
-          <mesh position={[2, 1.6, -2]}>
-            <boxGeometry args={[0.5, 0.5, 0.5]} />
-            <meshBasicMaterial color={0x0000ff} />
-          </mesh>
-        </>
-      )}
-
-      {/* 360° BACKGROUND - WebXR Layer (compositor-rendered, saves ~8MB GPU memory) */}
-      {backgroundImageUrl && supportsXRLayers() && (
-        <BackgroundXRLayer
-          imageUrl={backgroundImageUrl}
-          onLayerCreated={(layer) => {
-            console.log('[VR SCENE] Background layer ready');
-            setLayers((prev) => ({ ...prev, background: layer }));
-          }}
-        />
-      )}
-
-      {/* TEMPORARILY DISABLED - Gymnasium background */}
-      {/* {backgroundImageUrl && !supportsXRLayers() && (
-        <Gymnasium backgroundImageUrl={backgroundImageUrl} />
-      )} */}
-
-      {/* TEMPORARILY DISABLED - Coach video panel */}
-      {/* {showCoach && roomName && userName ? (
-        <TwilioVideoTexture
-          position={[2.5, 1.5, -3]}
-          roomName={roomName}
-          userName={userName}
-          onConnected={() => console.log('🎥 Connected to coach broadcast')}
-        />
-      ) : showCoach ? (
-        <VideoPanel
-          position={[2.5, 1.5, -3]}
-          rotation={[0, -Math.PI / 6, 0]}
-          title="Coach"
-        />
-      ) : null} */}
-
-      {/* TEMPORARILY DISABLED - Technique video */}
-      {/* {videoEnabled && supportsXRLayers() && (
-        <VideoXRLayer
-          videoUrl="/video/latora30.mp4"
-          position={[-2.5, 1.5, -3]}
-          rotation={[0, Math.PI / 6, 0]}
-          width={1.2}
-          height={2.0}
-          onLayerCreated={(layer) => {
-            console.log('[VR SCENE] Technique video layer ready');
-            setLayers((prev) => ({ ...prev, technique: layer }));
-          }}
-        />
-      )}
-
-      {videoEnabled && !supportsXRLayers() && (
-        <VideoTexture
-          position={[-2.5, 1.5, -3]}
-          rotation={[0, Math.PI / 6, 0]}
-          videoUrl="/video/latora30.mp4"
-          title="Wrestling Technique"
-        />
-      )} */}
-
-      {/* Webcam Mirror - Use AvatarMirror for both desktop AND VR */}
-      {/* XR Layers causes camera permission issues when transitioning to VR */}
-      {showMirror && (
-        <AvatarMirror
-          position={[0, 1.6, -2]}
-          rotation={[0, 0, 0]}
-          cameraDeviceId={cameraDeviceId}
-          onXRLayerChange={(layer) => {
-            setLayers((prev) => ({ ...prev, webcam: layer }));
-          }}
-        />
-      )}
+      <group position={[0, 1.35, -3]}>
+        {cards.map((card) => (
+          <TechniqueCard
+            key={card.id}
+            {...card}
+            onPositionChange={(next) => updateCardPosition(card.id, next)}
+            onScaleChange={(next) => updateCardScale(card.id, next)}
+          />
+        ))}
+      </group>
     </>
   );
 }
@@ -361,11 +405,7 @@ export default function VRSceneClient(props: VRSceneProps) {
         {/* Controllers and hands are enabled by default in v6 - no components needed! */}
         {/* User's avatar is their controllers/hands - Meta handles avatar rendering */}
         {/* Request 'layers' feature for WebXR Layers API support */}
-        <XR
-          store={xrStore}
-          referenceSpace="local-floor"
-          foveation={0}
-        >
+        <XR store={xrStore} referenceSpace="local-floor" foveation={0}>
           <VRSceneContent {...props} />
         </XR>
       </Canvas>
