@@ -972,7 +972,7 @@ function CoachChatCard({
 
       try {
         console.log('📡 Sending to Coach Andy API...');
-        const response = await fetch('http://localhost:3001/api/vr-coach-chat', {
+        const response = await fetch('http://localhost:3002/api/vr-coach-chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: transcript }),
