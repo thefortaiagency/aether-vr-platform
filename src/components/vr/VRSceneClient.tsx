@@ -7,9 +7,11 @@ import { XR, createXRStore, useXR } from '@react-three/xr';
 import * as THREE from 'three';
 import { VRControllerScreenshot } from './VRControllerScreenshot';
 
-const CARD_HEIGHT = 1.05;
+const CARD_HEIGHT = 1.35;
 const CARD_DEPTH = 0.045;
-const CARD_FRAME_PADDING = 0.14;
+const CARD_FRAME_PADDING = 0.12;
+const MIN_CARD_SCALE = 0.75;
+const MAX_CARD_SCALE = 2.75;
 
 interface VRSceneProps {
   activeExercise: string;
@@ -153,7 +155,7 @@ function PanoramaBackground({
   }
 
   return (
-    <mesh frustumCulled={false} rotation={[0, Math.PI, 0]}>
+    <mesh frustumCulled={false} rotation={[Math.PI, Math.PI, 0]}>
       <sphereGeometry args={[60, 128, 64]} />
       <meshBasicMaterial
         map={texture}
@@ -190,8 +192,6 @@ function useTechniqueVideoTexture(videoUrl: string) {
   const textureRef = React.useRef<THREE.VideoTexture | null>(null);
   const [texture, setTexture] = React.useState<THREE.VideoTexture | null>(null);
   const [isReady, setIsReady] = React.useState(false);
-  const [isPlaying, setIsPlaying] = React.useState(false);
-  const [isMuted, setIsMuted] = React.useState(true);
   const [dimensions, setDimensions] = React.useState<{ width: number; height: number }>({
     width: 16,
     height: 9,
@@ -199,8 +199,6 @@ function useTechniqueVideoTexture(videoUrl: string) {
 
   React.useEffect(() => {
     setIsReady(false);
-    setIsPlaying(false);
-    setIsMuted(true);
     setTexture(null);
 
     const video = document.createElement('video');
@@ -240,22 +238,15 @@ function useTechniqueVideoTexture(videoUrl: string) {
       video
         .play()
         .then(() => {
-          setIsPlaying(true);
+          // Autoplay succeeded
         })
         .catch((error) => {
           console.warn('[TechniqueCard] Autoplay blocked, waiting for user gesture', error);
         });
     };
 
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-    const handleVolumeChange = () => setIsMuted(video.muted);
-
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('loadeddata', handleLoadedData);
-    video.addEventListener('play', handlePlay);
-    video.addEventListener('pause', handlePause);
-    video.addEventListener('volumechange', handleVolumeChange);
 
     video.load();
 
@@ -263,9 +254,6 @@ function useTechniqueVideoTexture(videoUrl: string) {
       video.pause();
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('loadeddata', handleLoadedData);
-      video.removeEventListener('play', handlePlay);
-      video.removeEventListener('pause', handlePause);
-      video.removeEventListener('volumechange', handleVolumeChange);
 
       if (video.parentNode) {
         video.parentNode.removeChild(video);
@@ -283,38 +271,10 @@ function useTechniqueVideoTexture(videoUrl: string) {
     }
   });
 
-  const togglePlayback = React.useCallback(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    if (video.paused) {
-      video
-        .play()
-        .then(() => {
-          setIsPlaying(true);
-        })
-        .catch((error) => console.warn('[TechniqueCard] play() failed', error));
-    } else {
-      video.pause();
-    }
-  }, []);
-
-  const toggleMute = React.useCallback(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    video.muted = !video.muted;
-    setIsMuted(video.muted);
-  }, []);
-
   return {
     texture,
     isReady,
-    isPlaying,
-    isMuted,
     dimensions,
-    togglePlayback,
-    toggleMute,
   };
 }
 
@@ -336,14 +296,18 @@ function TechniqueCard({
   );
   const intersectionPoint = React.useMemo(() => new THREE.Vector3(), []);
   const raycaster = React.useMemo(() => new THREE.Raycaster(), []);
-  const [isDragging, setIsDragging] = React.useState(false);
+  const [isInteracting, setIsInteracting] = React.useState(false);
   const [isHovered, setIsHovered] = React.useState(false);
-  const lastPointerId = React.useRef<number | null>(null);
-  const dragMoved = React.useRef(false);
-  const rotateDuringDrag = React.useRef(false);
-  const pointerDeltaRef = React.useRef<{ x: number; y: number } | null>(null);
+  const activePointerId = React.useRef<number | null>(null);
+  const pointerOriginRef = React.useRef<{
+    client?: { x: number; y: number };
+    world?: THREE.Vector3;
+  } | null>(null);
+  const interactionModeRef = React.useRef<'drag' | 'rotate' | 'scale' | null>(null);
+  const rotationStartRef = React.useRef<[number, number, number]>(rotation);
+  const scaleStartRef = React.useRef<number>(scale);
 
-  const { texture, isReady, dimensions, togglePlayback } = useTechniqueVideoTexture(videoUrl);
+  const { texture, isReady, dimensions } = useTechniqueVideoTexture(videoUrl);
 
   const videoAspect = React.useMemo(() => {
     if (!dimensions.width || !dimensions.height) {
@@ -359,7 +323,7 @@ function TechniqueCard({
   const frameHeight = videoHeight + CARD_FRAME_PADDING;
   const haloWidth = frameWidth + 0.22;
   const haloHeight = frameHeight + 0.22;
-  const highlightStrength = isDragging ? 1 : isHovered ? 0.6 : 0.25;
+  const highlightStrength = isInteracting ? 1 : isHovered ? 0.6 : 0.25;
 
   const getClientPosition = React.useCallback((event: any) => {
     const native = event?.nativeEvent;
@@ -372,92 +336,179 @@ function TechniqueCard({
     return null;
   }, []);
 
+  const getWorldPoint = React.useCallback(
+    (event: any) => {
+      const toVector = (input: any) => {
+        if (input instanceof THREE.Vector3) {
+          return input.clone();
+        }
+        if (input && typeof input.x === 'number' && typeof input.y === 'number' && typeof input.z === 'number') {
+          return new THREE.Vector3(input.x, input.y, input.z);
+        }
+        return null;
+      };
+
+      const directPoint = toVector(event?.point);
+      if (directPoint) {
+        return directPoint;
+      }
+
+      const intersectionPoint = toVector(event?.intersections?.[0]?.point);
+      if (intersectionPoint) {
+        return intersectionPoint;
+      }
+
+      if (event?.ray) {
+        const target = new THREE.Vector3();
+        dragPlane.constant = -position[2];
+        if (event.ray.intersectPlane(dragPlane, target)) {
+          return target.clone();
+        }
+      }
+
+      return null;
+    },
+    [dragPlane, position[2]]
+  );
+
   const releasePointerCapture = React.useCallback((event: any) => {
-    if (lastPointerId.current !== null && event?.target?.releasePointerCapture) {
+    if (activePointerId.current !== null && event?.target?.releasePointerCapture) {
       try {
-        event.target.releasePointerCapture(lastPointerId.current);
+        event.target.releasePointerCapture(activePointerId.current);
       } catch (error) {
         // Some XR controllers do not support releasePointerCapture
       }
     }
-    lastPointerId.current = null;
+    activePointerId.current = null;
   }, []);
 
-  const handlePointerDown = (event: any) => {
-    event.stopPropagation();
-    setIsDragging(true);
-    dragMoved.current = false;
-    rotateDuringDrag.current = false;
-    pointerDeltaRef.current = getClientPosition(event);
+  const beginInteraction = React.useCallback(
+    (event: any, mode: 'drag' | 'rotate' | 'scale') => {
+      event.stopPropagation();
+      interactionModeRef.current = mode;
+      setIsInteracting(true);
+      const clientPosition = getClientPosition(event);
+      const worldPoint = getWorldPoint(event);
+      pointerOriginRef.current = {
+        client: clientPosition ?? undefined,
+        world: worldPoint ? worldPoint.clone() : undefined,
+      };
+      rotationStartRef.current = [...rotation] as [number, number, number];
+      scaleStartRef.current = scale;
 
-    if (typeof event.pointerId === 'number') {
-      lastPointerId.current = event.pointerId;
-      if (event.target?.setPointerCapture) {
-        try {
-          event.target.setPointerCapture(event.pointerId);
-        } catch (error) {
-          // Ignore setPointerCapture errors in XR
+      if (typeof event.pointerId === 'number') {
+        activePointerId.current = event.pointerId;
+        if (event.target?.setPointerCapture) {
+          try {
+            event.target.setPointerCapture(event.pointerId);
+          } catch (error) {
+            // Ignore setPointerCapture errors in XR
+          }
         }
+      } else {
+        activePointerId.current = null;
       }
-    } else {
-      lastPointerId.current = null;
-    }
+    },
+    [getClientPosition, getWorldPoint, rotation, scale]
+  );
+
+  const endInteraction = React.useCallback(
+    (event: any) => {
+      releasePointerCapture(event);
+      interactionModeRef.current = null;
+      setIsInteracting(false);
+      pointerOriginRef.current = null;
+    },
+    [releasePointerCapture]
+  );
+
+  const handlePointerDown = (event: any) => {
+    beginInteraction(event, 'drag');
   };
 
   const handlePointerUp = (event: any) => {
-    event.stopPropagation();
-    releasePointerCapture(event);
-    setIsDragging(false);
-    pointerDeltaRef.current = null;
-
-    const shouldToggle = !dragMoved.current && !rotateDuringDrag.current;
-    dragMoved.current = false;
-    rotateDuringDrag.current = false;
-
-    if (shouldToggle && isReady) {
-      togglePlayback();
+    if (interactionModeRef.current) {
+      event.stopPropagation();
     }
+    endInteraction(event);
   };
 
   const handlePointerMove = (event: any) => {
-    if (!isDragging) return;
+    if (!interactionModeRef.current) return;
     event.stopPropagation();
 
     const pointerInfo = getClientPosition(event);
+    const worldPoint = getWorldPoint(event);
+    const origin = pointerOriginRef.current;
 
-    if (event.shiftKey && pointerInfo && pointerDeltaRef.current) {
-      const deltaX = pointerInfo.x - pointerDeltaRef.current.x;
-      if (Math.abs(deltaX) > 0.001) {
-        const nextRotation: [number, number, number] = [
-          rotation[0],
-          rotation[1] - deltaX * 0.01,
-          rotation[2],
-        ];
-        onRotationChange(nextRotation);
-        rotateDuringDrag.current = true;
-      }
-      dragMoved.current = true;
-    } else if (cardRef.current) {
-      const pointer = event.intersections?.[0]?.point ?? event.point;
-      if (pointer) {
-        onPositionChange([pointer.x, pointer.y, position[2]]);
-        dragMoved.current = true;
-      } else if (event.ray) {
-        dragPlane.constant = -position[2];
-        raycaster.ray.origin.copy(event.ray.origin);
-        raycaster.ray.direction.copy(event.ray.direction);
-        if (raycaster.ray.intersectPlane(dragPlane, intersectionPoint)) {
-          onPositionChange([intersectionPoint.x, intersectionPoint.y, position[2]]);
-          dragMoved.current = true;
+    switch (interactionModeRef.current) {
+      case 'rotate': {
+        if (pointerInfo && origin?.client) {
+          const deltaX = pointerInfo.x - origin.client.x;
+          const start = rotationStartRef.current;
+          const nextRotation: [number, number, number] = [
+            start[0],
+            start[1] - deltaX * 0.01,
+            start[2],
+          ];
+          onRotationChange(nextRotation);
+        } else if (worldPoint && origin?.world && cardRef.current) {
+          const start = rotationStartRef.current;
+          const startLocal = origin.world.clone();
+          const currentLocal = worldPoint.clone();
+          cardRef.current.worldToLocal(startLocal);
+          cardRef.current.worldToLocal(currentLocal);
+          const deltaX = currentLocal.x - startLocal.x;
+          const nextRotation: [number, number, number] = [
+            start[0],
+            start[1] - deltaX * 1.2,
+            start[2],
+          ];
+          onRotationChange(nextRotation);
         }
+        break;
       }
+      case 'scale': {
+        if (pointerInfo && origin?.client) {
+          const deltaY = pointerInfo.y - origin.client.y;
+          const startScale = scaleStartRef.current;
+          const nextScale = clamp(startScale - deltaY * 0.0035, MIN_CARD_SCALE, MAX_CARD_SCALE);
+          onScaleChange(nextScale);
+        } else if (worldPoint && origin?.world && cardRef.current) {
+          const startScale = scaleStartRef.current;
+          const startLocal = origin.world.clone();
+          const currentLocal = worldPoint.clone();
+          cardRef.current.worldToLocal(startLocal);
+          cardRef.current.worldToLocal(currentLocal);
+          const deltaY = currentLocal.y - startLocal.y;
+          const nextScale = clamp(startScale + deltaY * 1.6, MIN_CARD_SCALE, MAX_CARD_SCALE);
+          onScaleChange(nextScale);
+        }
+        break;
+      }
+      case 'drag': {
+        if (cardRef.current) {
+          const pointer = event.intersections?.[0]?.point ?? event.point;
+          if (pointer) {
+            onPositionChange([pointer.x, pointer.y, position[2]]);
+          } else if (event.ray) {
+            dragPlane.constant = -position[2];
+            raycaster.ray.origin.copy(event.ray.origin);
+            raycaster.ray.direction.copy(event.ray.direction);
+            if (raycaster.ray.intersectPlane(dragPlane, intersectionPoint)) {
+              onPositionChange([intersectionPoint.x, intersectionPoint.y, position[2]]);
+            }
+          }
+        }
+        break;
+      }
+      default:
+        break;
     }
-
-    pointerDeltaRef.current = pointerInfo ?? pointerDeltaRef.current;
   };
 
   const adjustScale = (delta: number) => {
-    const next = clamp(scale + delta, 0.55, 2.1);
+    const next = clamp(scale + delta, MIN_CARD_SCALE, MAX_CARD_SCALE);
     onScaleChange(next);
   };
 
@@ -469,11 +520,10 @@ function TechniqueCard({
   };
 
   const handlePointerCancel = (event: any) => {
-    releasePointerCapture(event);
-    setIsDragging(false);
-    pointerDeltaRef.current = null;
-    dragMoved.current = false;
-    rotateDuringDrag.current = false;
+    if (interactionModeRef.current) {
+      event.stopPropagation();
+    }
+    endInteraction(event);
   };
 
   const pointerHandlers = {
@@ -484,10 +534,34 @@ function TechniqueCard({
     onPointerOver: () => setIsHovered(true),
     onPointerOut: () => {
       setIsHovered(false);
-      pointerDeltaRef.current = null;
+      pointerOriginRef.current = null;
     },
     onWheel: handleWheel,
     onContextMenu: (event: any) => event.preventDefault(),
+  };
+
+  const rotateHandleHandlers = {
+    onPointerDown: (event: any) => beginInteraction(event, 'rotate'),
+    onPointerMove: handlePointerMove,
+    onPointerUp: handlePointerUp,
+    onPointerCancel: handlePointerCancel,
+    onPointerOver: () => setIsHovered(true),
+    onPointerOut: () => {
+      setIsHovered(false);
+      pointerOriginRef.current = null;
+    },
+  };
+
+  const scaleHandleHandlers = {
+    onPointerDown: (event: any) => beginInteraction(event, 'scale'),
+    onPointerMove: handlePointerMove,
+    onPointerUp: handlePointerUp,
+    onPointerCancel: handlePointerCancel,
+    onPointerOver: () => setIsHovered(true),
+    onPointerOut: () => {
+      setIsHovered(false);
+      pointerOriginRef.current = null;
+    },
   };
 
   return (
@@ -521,11 +595,38 @@ function TechniqueCard({
         </RoundedBox>
         <mesh position={[0, 0, CARD_DEPTH / 2 + 0.001]} {...pointerHandlers}>
           <planeGeometry args={[videoWidth, videoHeight]} />
-          {texture && isReady ? (
-            <meshBasicMaterial map={texture} toneMapped={false} />
-          ) : (
-            <meshStandardMaterial color="#05070d" roughness={0.9} metalness={0.1} />
-          )}
+          <meshBasicMaterial
+            map={texture && isReady ? texture : undefined}
+            color={texture && isReady ? undefined : '#05070d'}
+            toneMapped={false}
+          />
+        </mesh>
+        <mesh
+          position={[frameWidth / 2 + 0.28, 0, 0]}
+          rotation={[0, 0, Math.PI / 2]}
+          {...rotateHandleHandlers}
+        >
+          <torusGeometry args={[0.14, 0.028, 16, 48]} />
+          <meshStandardMaterial
+            color={glowColor}
+            emissive={glowColor}
+            emissiveIntensity={0.5 + highlightStrength * 0.4}
+            metalness={0.2}
+            roughness={0.35}
+          />
+        </mesh>
+        <mesh
+          position={[0, -(frameHeight / 2 + 0.26), 0]}
+          {...scaleHandleHandlers}
+        >
+          <cylinderGeometry args={[0.11, 0.11, 0.08, 24]} />
+          <meshStandardMaterial
+            color={frameColor}
+            emissive={glowColor}
+            emissiveIntensity={0.35 + highlightStrength * 0.3}
+            metalness={0.25}
+            roughness={0.4}
+          />
         </mesh>
       </group>
     </group>
@@ -535,54 +636,54 @@ function TechniqueCard({
 const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = [
   {
     id: 'stance',
-    position: [-2.15, 1.5, -3.15],
+    position: [-2.2, 1.55, -3.25],
     rotation: [0, Math.PI / 12, 0],
-    scale: 1.05,
+    scale: 1.35,
     frameColor: '#111a2c',
     glowColor: '#38bdf8',
     videoUrl: '/video/latora30.mp4',
   },
   {
     id: 'hand-fight',
-    position: [-0.85, 1.65, -2.95],
+    position: [-0.9, 1.7, -3],
     rotation: [0, Math.PI / 28, 0],
-    scale: 1,
+    scale: 1.32,
     frameColor: '#101827',
     glowColor: '#22d3ee',
     videoUrl: '/video/latora30.mp4',
   },
   {
     id: 'setups',
-    position: [0.55, 1.6, -2.85],
+    position: [0.5, 1.65, -2.9],
     rotation: [0, -Math.PI / 32, 0],
-    scale: 1,
+    scale: 1.28,
     frameColor: '#0f172a',
     glowColor: '#34d399',
     videoUrl: '/video/latora30.mp4',
   },
   {
     id: 'finishes',
-    position: [1.85, 1.45, -3.05],
+    position: [1.95, 1.55, -3.15],
     rotation: [0, -Math.PI / 16, 0],
-    scale: 1.05,
+    scale: 1.34,
     frameColor: '#101820',
     glowColor: '#facc15',
     videoUrl: '/video/latora30.mp4',
   },
   {
     id: 'mat-returns',
-    position: [-1.4, 0.6, -2.65],
+    position: [-1.45, 0.65, -2.7],
     rotation: [0, Math.PI / 18, 0],
-    scale: 0.92,
+    scale: 1.18,
     frameColor: '#111726',
     glowColor: '#f472b6',
     videoUrl: '/video/latora30.mp4',
   },
   {
     id: 'chain',
-    position: [1.05, 0.55, -2.6],
+    position: [1.1, 0.6, -2.65],
     rotation: [0, -Math.PI / 20, 0],
-    scale: 0.95,
+    scale: 1.22,
     frameColor: '#101a2b',
     glowColor: '#a855f7',
     videoUrl: '/video/latora30.mp4',
