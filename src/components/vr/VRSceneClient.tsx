@@ -479,18 +479,12 @@ function useTechniqueVideoTexture(videoUrl: string) {
       if (video.readyState >= 2) {
         setIsReady(true);
         markTextureDirty();
-        // Auto-play when ready
-        video.muted = true; // Must be muted for autoplay
-        video.play().catch(err => console.warn('[VIDEO] Autoplay blocked:', err));
       }
     };
 
     const handleCanPlay = () => {
       setIsReady(true);
       markTextureDirty();
-      // Auto-play when ready
-      video.muted = true; // Must be muted for autoplay
-      video.play().catch(err => console.warn('[VIDEO] Autoplay blocked:', err));
     };
 
     const handlePlay = () => {
