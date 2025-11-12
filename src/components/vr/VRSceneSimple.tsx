@@ -8,7 +8,6 @@ interface VRSceneProps {
   activeExercise: string;
   showCoach: boolean;
   videoEnabled: boolean;
-  showMirror?: boolean;
   onVRStart: () => void;
   onVREnd: () => void;
   backgroundImageUrl?: string;
