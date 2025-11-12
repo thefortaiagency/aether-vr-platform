@@ -1186,12 +1186,34 @@ function CoachChatCard({
       {/* Draggable area - invisible plane for dragging */}
       <mesh
         position={[0, 0, CARD_DEPTH / 2 + 0.1]}
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-        onPointerMove={handlePointerMove}
-        onPointerCancel={handlePointerCancel}
-        onPointerOver={handlePointerOver}
-        onPointerOut={handlePointerOut}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          if (e.nativeEvent?.stopImmediatePropagation) e.nativeEvent.stopImmediatePropagation();
+          if (e.nativeEvent?.preventDefault) e.nativeEvent.preventDefault();
+          handlePointerDown(e);
+        }}
+        onPointerUp={(e) => {
+          e.stopPropagation();
+          if (e.nativeEvent?.stopImmediatePropagation) e.nativeEvent.stopImmediatePropagation();
+          if (e.nativeEvent?.preventDefault) e.nativeEvent.preventDefault();
+          handlePointerUp(e);
+        }}
+        onPointerMove={(e) => {
+          e.stopPropagation();
+          handlePointerMove(e);
+        }}
+        onPointerCancel={(e) => {
+          e.stopPropagation();
+          handlePointerCancel(e);
+        }}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          handlePointerOver();
+        }}
+        onPointerOut={(e) => {
+          e.stopPropagation();
+          handlePointerOut();
+        }}
       >
         <planeGeometry args={[frameWidth, frameHeight]} />
         <meshBasicMaterial transparent opacity={0} />
