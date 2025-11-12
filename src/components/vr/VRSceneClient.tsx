@@ -472,13 +472,10 @@ function useTechniqueVideoTexture(videoUrl: string) {
     video.setAttribute('loop', 'true');
     video.preload = 'auto';
     video.src = resolvedUrl;
-    video.style.position = 'fixed';
-    video.style.top = '10px';
-    video.style.right = '10px';
-    video.style.width = '200px';
-    video.style.height = 'auto';
-    video.style.zIndex = '9999';
-    video.style.border = '3px solid red';
+    video.style.position = 'absolute';
+    video.style.width = '1px';
+    video.style.height = '1px';
+    video.style.opacity = '0';
     video.style.pointerEvents = 'none';
     video.dataset.techniqueVideo = resolvedUrl;
     document.body.appendChild(video);
@@ -934,14 +931,14 @@ function TechniqueCard({
             emissiveIntensity={0.25 + glowLevel}
           />
         </RoundedBox>
-        {/* Temporarily removed dark frame for debugging */}
-        {/* <RoundedBox
+        {/* Dark inner frame - positioned BEHIND video */}
+        <RoundedBox
           args={[frameWidth + CARD_BORDER * 1.4, frameHeight + CARD_BORDER * 1.4, CARD_DEPTH * 0.6]}
           radius={0.065}
           smoothness={6}
+          position={[0, 0, -CARD_DEPTH * 0.1]}
           castShadow
           receiveShadow
-          {...pointerHandlers}
         >
           <meshStandardMaterial
             color="#08090f"
@@ -950,7 +947,8 @@ function TechniqueCard({
             emissive="#101320"
             emissiveIntensity={0.18 + glowLevel * 0.55}
           />
-        </RoundedBox> */}
+        </RoundedBox>
+        {/* Video plane - in front of dark frame */}
         <mesh position={[0, 0, CARD_DEPTH / 2 + 0.1]} {...pointerHandlers}>
           <planeGeometry args={[videoWidth, videoHeight]} />
           <meshBasicMaterial
@@ -1000,20 +998,24 @@ function TechniqueCard({
 // Draggable 3D Video Panel for VR
 const TECHNIQUE_CARD_IDS = [
   'stance',
-  // 'hand-fight',
-  // 'setups',
-  // 'finishes',
-  // 'mat-returns',
-  // 'chain',
+  'hand-fight',
+  'setups',
+  'finishes',
+  'mat-returns',
+  'chain',
 ] as const;
 
 const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARD_IDS.map((id, index) => {
-  // Position single card directly in front of camera for testing
+  const theta = (index / TECHNIQUE_CARD_IDS.length) * Math.PI * 2;
+  const x = Math.sin(theta) * CARD_RING_RADIUS;
+  const z = -Math.cos(theta) * CARD_RING_RADIUS;
+  const rotationY = Math.atan2(x, -z);
+
   return {
     id,
-    position: [0, CARD_BASE_HEIGHT, -3],
-    rotation: [0, 0, 0],
-    scale: 1.5,
+    position: [x, CARD_BASE_HEIGHT, z],
+    rotation: [0, rotationY, 0],
+    scale: 2.15,
     videoUrl: '/video/latora30.mp4',
   };
 });
