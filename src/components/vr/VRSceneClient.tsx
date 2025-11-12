@@ -472,10 +472,13 @@ function useTechniqueVideoTexture(videoUrl: string) {
     video.setAttribute('loop', 'true');
     video.preload = 'auto';
     video.src = resolvedUrl;
-    video.style.position = 'absolute';
-    video.style.width = '1px';
-    video.style.height = '1px';
-    video.style.opacity = '0';
+    video.style.position = 'fixed';
+    video.style.top = '10px';
+    video.style.right = '10px';
+    video.style.width = '200px';
+    video.style.height = 'auto';
+    video.style.zIndex = '9999';
+    video.style.border = '3px solid red';
     video.style.pointerEvents = 'none';
     video.dataset.techniqueVideo = resolvedUrl;
     document.body.appendChild(video);
@@ -613,6 +616,21 @@ function useTechniqueVideoTexture(videoUrl: string) {
     // This ensures the first frame shows when video is loaded but paused
     if (video.readyState >= 2) {
       texture.needsUpdate = true;
+
+      // Debug: log texture state every 60 frames (~ once per second)
+      if (Math.random() < 0.016) {
+        console.log('[TEXTURE DEBUG] 🎨 Texture update', {
+          url: resolvedUrl,
+          textureUuid: texture.uuid,
+          needsUpdate: texture.needsUpdate,
+          videoCurrentTime: video.currentTime,
+          videoPaused: video.paused,
+          videoReadyState: video.readyState,
+          textureImage: texture.image === video,
+          videoWidth: video.videoWidth,
+          videoHeight: video.videoHeight
+        });
+      }
     }
   });
 
