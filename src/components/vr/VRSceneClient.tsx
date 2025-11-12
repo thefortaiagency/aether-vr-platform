@@ -523,8 +523,26 @@ function useTechniqueVideoTexture(videoUrl: string) {
           videoHeight: video.videoHeight,
           paused: video.paused
         });
-        setIsReady(true);
-        markTextureDirty();
+
+        // iOS/WebKit warmup: force GPU texture update
+        const warmup = async () => {
+          try {
+            await video.play();
+            setTimeout(() => {
+              video.pause();
+              video.currentTime = 0;
+              setIsReady(true);
+              markTextureDirty();
+              console.log('[VIDEO DEBUG] 🔥 WebKit warmup complete');
+            }, 50);
+          } catch (error) {
+            console.warn('[VIDEO DEBUG] ⚠️ Warmup failed, setting ready anyway:', error);
+            setIsReady(true);
+            markTextureDirty();
+          }
+        };
+
+        warmup();
       }
     };
 
@@ -918,7 +936,8 @@ function TechniqueCard({
             map={texture && isReady ? texture : undefined}
             color={texture && isReady ? undefined : '#0f111a'}
             toneMapped={false}
-            side={THREE.DoubleSide}
+            transparent={false}
+            side={THREE.FrontSide}
           />
         </mesh>
 
