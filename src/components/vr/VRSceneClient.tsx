@@ -13,6 +13,11 @@ import { WebcamXRLayer } from './WebcamXRLayer';
 import { BackgroundXRLayer } from './BackgroundXRLayer';
 import { VideoXRLayer } from './VideoXRLayer';
 import { updateLayerStack, supportsXRLayers } from '@/lib/xr-layers';
+import { ensureCameraAccessFeature } from '@/lib/xr-camera-access';
+
+if (typeof window !== 'undefined') {
+  ensureCameraAccessFeature();
+}
 
 interface VRSceneProps {
   activeExercise: string;
@@ -93,19 +98,15 @@ function Gymnasium({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
   console.log('[GYMNASIUM] Rendering - texture exists:', !!texture);
 
   return (
-    <>
-      {/* MINIMAL TEST - Only dark skybox, no texture */}
-      <mesh>
-        <sphereGeometry args={[50, 32, 32]} />
-        <meshBasicMaterial color={0x1a1a2e} side={THREE.BackSide} />
-      </mesh>
-
-      {/* Simple floor - no shadows */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-        <planeGeometry args={[100, 100]} />
-        <meshBasicMaterial color={0x0a0a15} />
-      </mesh>
-    </>
+    <mesh>
+      <sphereGeometry args={[50, 64, 64]} />
+      <meshBasicMaterial
+        map={texture ?? undefined}
+        color={texture ? 0xffffff : 0x1a1a2e}
+        side={THREE.BackSide}
+        toneMapped={false}
+      />
+    </mesh>
   );
 }
 
@@ -181,11 +182,13 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
     webcam: null,
   });
 
-  const { session } = useXR();
+  const { session, isPresenting } = useXR();
+  const showXrEnvironment = Boolean(session && isPresenting);
+  const xrLayersSupported = React.useMemo(() => supportsXRLayers(), []);
 
   // Update layer stack when layers change
   React.useEffect(() => {
-    if (!session || !supportsXRLayers()) return;
+    if (!session || !xrLayersSupported) return;
 
     const layerArray = [
       layers.background,
@@ -197,7 +200,7 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
       console.log('[VR SCENE] Updating layer stack with', layerArray.length, 'layers');
       updateLayerStack(session, layerArray);
     }
-  }, [session, layers.background, layers.technique, layers.webcam]);
+  }, [session, layers.background, layers.technique, layers.webcam, xrLayersSupported]);
 
   return (
     <>
@@ -208,33 +211,41 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
       <ambientLight intensity={1.0} />
       <directionalLight position={[0, 10, 0]} intensity={1.0} />
 
-      {/* Dark skybox sphere for immersion */}
-      <mesh>
-        <sphereGeometry args={[50, 32, 32]} />
-        <meshBasicMaterial color={0x0a0a15} side={THREE.BackSide} />
-      </mesh>
+      {showXrEnvironment && (
+        <>
+          {/* Textured gym background when XR layers are unavailable */}
+          {backgroundImageUrl && (!xrLayersSupported || !layers.background) ? (
+            <Gymnasium backgroundImageUrl={backgroundImageUrl} />
+          ) : (
+            <mesh>
+              <sphereGeometry args={[50, 32, 32]} />
+              <meshBasicMaterial color={0x0a0a15} side={THREE.BackSide} />
+            </mesh>
+          )}
 
-      {/* Floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-        <planeGeometry args={[100, 100]} />
-        <meshBasicMaterial color={0x1a1a2e} />
-      </mesh>
+          {/* Floor */}
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+            <planeGeometry args={[100, 100]} />
+            <meshBasicMaterial color={0x1a1a2e} />
+          </mesh>
 
-      {/* Bright reference cubes - easily visible */}
-      <mesh position={[0, 1.6, -2]}>
-        <boxGeometry args={[0.5, 0.5, 0.5]} />
-        <meshBasicMaterial color={0xff0000} />
-      </mesh>
+          {/* Bright reference cubes - easily visible */}
+          <mesh position={[0, 1.6, -2]}>
+            <boxGeometry args={[0.5, 0.5, 0.5]} />
+            <meshBasicMaterial color={0xff0000} />
+          </mesh>
 
-      <mesh position={[-2, 1.6, -2]}>
-        <boxGeometry args={[0.5, 0.5, 0.5]} />
-        <meshBasicMaterial color={0x00ff00} />
-      </mesh>
+          <mesh position={[-2, 1.6, -2]}>
+            <boxGeometry args={[0.5, 0.5, 0.5]} />
+            <meshBasicMaterial color={0x00ff00} />
+          </mesh>
 
-      <mesh position={[2, 1.6, -2]}>
-        <boxGeometry args={[0.5, 0.5, 0.5]} />
-        <meshBasicMaterial color={0x0000ff} />
-      </mesh>
+          <mesh position={[2, 1.6, -2]}>
+            <boxGeometry args={[0.5, 0.5, 0.5]} />
+            <meshBasicMaterial color={0x0000ff} />
+          </mesh>
+        </>
+      )}
 
       {/* 360° BACKGROUND - WebXR Layer (compositor-rendered, saves ~8MB GPU memory) */}
       {backgroundImageUrl && supportsXRLayers() && (
@@ -299,6 +310,9 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
           position={[0, 1.6, -2]}
           rotation={[0, 0, 0]}
           cameraDeviceId={cameraDeviceId}
+          onXRLayerChange={(layer) => {
+            setLayers((prev) => ({ ...prev, webcam: layer }));
+          }}
         />
       )}
     </>
@@ -339,6 +353,8 @@ export default function VRSceneClient(props: VRSceneProps) {
         style={{ background: 'transparent' }}
         onCreated={(state) => {
           console.log('✅ Canvas created, WebGL ready');
+          state.gl.setClearColor(new THREE.Color(0x000000), 0);
+          state.scene.background = null;
         }}
       >
         {/* Wrap scene content with XR component and pass the store */}
