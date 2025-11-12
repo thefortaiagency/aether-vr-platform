@@ -1114,16 +1114,24 @@ const TECHNIQUE_CARD_IDS = [
 ] as const;
 
 const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARD_IDS.map((id, index) => {
-  const theta = (index / TECHNIQUE_CARD_IDS.length) * Math.PI * 2;
-  const x = Math.sin(theta) * CARD_RING_RADIUS;
-  const z = -Math.cos(theta) * CARD_RING_RADIUS;
-  const rotationY = Math.atan2(x, -z);
+  // 3x2 grid layout in front of user
+  const row = Math.floor(index / 3); // 0 or 1 (top or bottom row)
+  const col = index % 3; // 0, 1, or 2 (left, center, right)
+
+  const xSpacing = 3.2;
+  const ySpacing = 2.5;
+  const zDistance = -5;
+
+  // Center the grid horizontally
+  const x = (col - 1) * xSpacing; // -3.2, 0, 3.2
+  const y = CARD_BASE_HEIGHT + 1 - (row * ySpacing); // top row higher, bottom row lower
+  const z = zDistance;
 
   return {
     id,
-    position: [x, CARD_BASE_HEIGHT, z],
-    rotation: [0, rotationY, 0],
-    scale: 2.15,
+    position: [x, y, z],
+    rotation: [0, 0, 0], // All facing forward
+    scale: 1.8,
     videoUrl: '/video/latora30.mp4',
   };
 });
