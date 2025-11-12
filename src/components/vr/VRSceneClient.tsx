@@ -640,14 +640,19 @@ function useTechniqueVideoTexture(videoUrl: string) {
         console.log('[TEXTURE DEBUG] 🎨 Texture update', {
           url: resolvedUrl,
           textureUuid: texture.uuid,
-          needsUpdate: texture.needsUpdate,
+          needsUpdateBefore: texture.needsUpdate,
           videoCurrentTime: video.currentTime,
           videoPaused: video.paused,
           videoReadyState: video.readyState,
-          textureImage: texture.image === video,
+          textureImageIsVideo: texture.image === video,
+          textureImageType: texture.image?.constructor?.name,
           videoWidth: video.videoWidth,
-          videoHeight: video.videoHeight
+          videoHeight: video.videoHeight,
+          textureVersion: texture.version
         });
+        // Set it again just to be sure
+        texture.needsUpdate = true;
+        console.log('[TEXTURE DEBUG] 🔄 Set needsUpdate=true, version now:', texture.version);
       }
     }
   });
@@ -673,6 +678,7 @@ function TechniqueCard({
   onRotationChange,
 }: TechniqueCardProps) {
   const cardRef = React.useRef<THREE.Group>(null);
+  const materialRef = React.useRef<THREE.MeshBasicMaterial>(null);
   const dragPlaneRef = React.useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), -position[1]));
   const intersectionPoint = React.useMemo(() => new THREE.Vector3(), []);
   const pointerIdRef = React.useRef<number | null>(null);
@@ -885,6 +891,20 @@ function TechniqueCard({
   const controlZ = CARD_DEPTH / 2 + 0.12;
   const playbackOffsetY = controlOffsetY + 0.32;
 
+  // Force material to update when texture changes
+  React.useEffect(() => {
+    const material = materialRef.current;
+    if (material && texture && isReady) {
+      material.map = texture;
+      material.needsUpdate = true;
+      console.log('[MATERIAL DEBUG] 🎨 Forced material update', {
+        videoUrl,
+        textureUuid: texture.uuid,
+        materialUuid: material.uuid
+      });
+    }
+  }, [texture, isReady, videoUrl]);
+
   // Debug logging for render - only when isReady changes
   React.useEffect(() => {
     if (isReady) {
@@ -933,11 +953,13 @@ function TechniqueCard({
         <mesh position={[0, 0, CARD_DEPTH / 2 + 0.001]} {...pointerHandlers}>
           <planeGeometry args={[videoWidth, videoHeight]} />
           <meshBasicMaterial
+            ref={materialRef}
             map={texture && isReady ? texture : undefined}
             color={texture && isReady ? undefined : '#0f111a'}
             toneMapped={false}
             transparent={false}
             side={THREE.FrontSide}
+            needsUpdate={true}
           />
         </mesh>
 
