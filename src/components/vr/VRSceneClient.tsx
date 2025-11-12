@@ -760,7 +760,11 @@ function TechniqueCard({
       onPointerOut: handlePointerOut,
       onWheel: handleWheel,
       onDoubleClick: handleDoubleClick,
-      onContextMenu: (event: any) => event.preventDefault(),
+      onContextMenu: (event: any) => {
+        if (event && typeof event.preventDefault === 'function') {
+          event.preventDefault();
+        }
+      },
     }),
     [
       handlePointerDown,
