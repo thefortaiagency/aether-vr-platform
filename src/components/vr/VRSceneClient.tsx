@@ -376,28 +376,42 @@ function useTechniqueVideoTexture(videoUrl: string) {
 
   const requestPlay = React.useCallback(() => {
     const video = videoRef.current;
+    console.log('[VIDEO DEBUG] 🎮 requestPlay called', {
+      url: videoUrl,
+      hasVideo: !!video,
+      videoPaused: video?.paused,
+      videoEnded: video?.ended
+    });
+
     if (!video) {
       return;
     }
 
     if (!video.paused && !video.ended) {
+      console.log('[VIDEO DEBUG] ⚠️ Video already playing, skipping');
       return;
     }
 
     const attemptTime = Date.now();
     if (attemptTime - lastPlayAttemptRef.current < 250) {
+      console.log('[VIDEO DEBUG] ⚠️ Play throttled (< 250ms since last attempt)');
       return;
     }
 
     lastPlayAttemptRef.current = attemptTime;
 
+    console.log('[VIDEO DEBUG] 🚀 Calling video.play()');
     const playResult = video.play();
     if (playResult && typeof playResult.catch === 'function') {
-      playResult.catch((error) => {
-        console.warn('[TechniqueCard] Video play request interrupted', error);
-      });
+      playResult
+        .then(() => {
+          console.log('[VIDEO DEBUG] ✅ video.play() succeeded');
+        })
+        .catch((error) => {
+          console.warn('[VIDEO DEBUG] ❌ video.play() failed:', error);
+        });
     }
-  }, []);
+  }, [videoUrl]);
 
   const requestPause = React.useCallback(() => {
     const video = videoRef.current;
@@ -457,6 +471,12 @@ function useTechniqueVideoTexture(videoUrl: string) {
     texture.magFilter = THREE.LinearFilter;
     texture.generateMipmaps = false;
 
+    console.log('[VIDEO DEBUG] 🎬 Created video texture', {
+      url: resolvedUrl,
+      textureUuid: texture.uuid,
+      videoElement: video
+    });
+
     videoRef.current = video;
     textureRef.current = texture;
     setTexture(texture);
@@ -477,30 +497,49 @@ function useTechniqueVideoTexture(videoUrl: string) {
     const handleLoadedData = () => {
       updateDimensions();
       if (video.readyState >= 2) {
+        console.log('[VIDEO DEBUG] ✅ Video loaded data', {
+          url: resolvedUrl,
+          readyState: video.readyState,
+          duration: video.duration,
+          videoWidth: video.videoWidth,
+          videoHeight: video.videoHeight,
+          paused: video.paused
+        });
         setIsReady(true);
         markTextureDirty();
       }
     };
 
     const handleCanPlay = () => {
+      console.log('[VIDEO DEBUG] ✅ Video can play', {
+        url: resolvedUrl,
+        readyState: video.readyState,
+        paused: video.paused
+      });
       setIsReady(true);
       markTextureDirty();
     };
 
     const handlePlay = () => {
+      console.log('[VIDEO DEBUG] ▶️ Video playing', {
+        url: resolvedUrl,
+        currentTime: video.currentTime,
+        paused: video.paused
+      });
       setIsReady(true);
       setIsPlaying(true);
       markTextureDirty();
     };
 
     const handlePause = () => {
+      console.log('[VIDEO DEBUG] ⏸️ Video paused', { url: resolvedUrl });
       setIsPlaying(false);
       markTextureDirty();
     };
 
     const handleError = () => {
       const mediaError = video.error;
-      console.error('[TechniqueCard] Video failed to play', {
+      console.error('[VIDEO DEBUG] ❌ Video error', {
         code: mediaError?.code,
         message: mediaError?.message,
         url: resolvedUrl,
@@ -545,7 +584,9 @@ function useTechniqueVideoTexture(videoUrl: string) {
       return;
     }
 
-    if (video.readyState >= 2 && !video.paused && !video.ended) {
+    // Always mark texture as needing update when video has data, even if paused
+    // This ensures the first frame shows when video is loaded but paused
+    if (video.readyState >= 2) {
       texture.needsUpdate = true;
     }
   });
@@ -782,6 +823,19 @@ function TechniqueCard({
   const controlOffsetY = frameHeight / 2 + 0.32;
   const controlZ = CARD_DEPTH / 2 + 0.12;
   const playbackOffsetY = controlOffsetY + 0.32;
+
+  // Debug logging for render
+  React.useEffect(() => {
+    console.log('[CARD DEBUG] 🎴 Card rendering', {
+      videoUrl,
+      hasTexture: !!texture,
+      isReady,
+      isPlaying,
+      textureUuid: texture?.uuid,
+      videoWidth,
+      videoHeight
+    });
+  }, [texture, isReady, isPlaying, videoUrl, videoWidth, videoHeight]);
 
   return (
     <group ref={cardRef} position={position} rotation={rotation} scale={scale}>
