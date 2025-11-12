@@ -199,17 +199,18 @@ type ControlButtonType =
   | 'pause';
 
 function ControlIcon({ type }: { type: ControlButtonType }) {
+  const iconColor = "#00ff00"; // Bright green for visibility
   switch (type) {
     case 'plus':
       return (
         <group position={[0, 0.11, 0]}>
           <mesh raycast={() => null}>
             <boxGeometry args={[0.1, 0.02, 0.02]} />
-            <meshStandardMaterial color="#111217" metalness={0.2} roughness={0.45} />
+            <meshStandardMaterial color={iconColor} metalness={0.2} roughness={0.45} />
           </mesh>
           <mesh raycast={() => null} rotation={[0, 0, Math.PI / 2]}>
             <boxGeometry args={[0.1, 0.02, 0.02]} />
-            <meshStandardMaterial color="#111217" metalness={0.2} roughness={0.45} />
+            <meshStandardMaterial color={iconColor} metalness={0.2} roughness={0.45} />
           </mesh>
         </group>
       );
@@ -218,7 +219,7 @@ function ControlIcon({ type }: { type: ControlButtonType }) {
         <group position={[0, 0.11, 0]}>
           <mesh raycast={() => null}>
             <boxGeometry args={[0.1, 0.02, 0.02]} />
-            <meshStandardMaterial color="#111217" metalness={0.2} roughness={0.45} />
+            <meshStandardMaterial color={iconColor} metalness={0.2} roughness={0.45} />
           </mesh>
         </group>
       );
@@ -227,11 +228,11 @@ function ControlIcon({ type }: { type: ControlButtonType }) {
         <group position={[0, 0.11, 0]}>
           <mesh raycast={() => null} rotation={[Math.PI / 2, 0, 0]}>
             <torusGeometry args={[0.07, 0.012, 18, 46, Math.PI * 1.25]} />
-            <meshStandardMaterial color="#111217" metalness={0.25} roughness={0.4} />
+            <meshStandardMaterial color={iconColor} metalness={0.25} roughness={0.4} />
           </mesh>
           <mesh raycast={() => null} position={[-0.065, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
             <coneGeometry args={[0.05, 0.11, 24]} />
-            <meshStandardMaterial color="#111217" metalness={0.25} roughness={0.4} />
+            <meshStandardMaterial color={iconColor} metalness={0.25} roughness={0.4} />
           </mesh>
         </group>
       );
@@ -240,11 +241,11 @@ function ControlIcon({ type }: { type: ControlButtonType }) {
         <group position={[0, 0.11, 0]}>
           <mesh raycast={() => null} rotation={[Math.PI / 2, 0, 0]}>
             <torusGeometry args={[0.07, 0.012, 18, 46, Math.PI * 1.25]} />
-            <meshStandardMaterial color="#111217" metalness={0.25} roughness={0.4} />
+            <meshStandardMaterial color={iconColor} metalness={0.25} roughness={0.4} />
           </mesh>
           <mesh raycast={() => null} position={[0.065, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
             <coneGeometry args={[0.05, 0.11, 24]} />
-            <meshStandardMaterial color="#111217" metalness={0.25} roughness={0.4} />
+            <meshStandardMaterial color={iconColor} metalness={0.25} roughness={0.4} />
           </mesh>
         </group>
       );
@@ -253,7 +254,7 @@ function ControlIcon({ type }: { type: ControlButtonType }) {
         <group position={[0, 0.11, 0]}>
           <mesh raycast={() => null} rotation={[0, 0, Math.PI / 2]}>
             <coneGeometry args={[0.11, 0.16, 24]} />
-            <meshStandardMaterial color="#111217" metalness={0.25} roughness={0.4} />
+            <meshStandardMaterial color={iconColor} metalness={0.25} roughness={0.4} />
           </mesh>
         </group>
       );
@@ -262,11 +263,11 @@ function ControlIcon({ type }: { type: ControlButtonType }) {
         <group position={[0, 0.11, 0]}>
           <mesh raycast={() => null} position={[-0.03, 0, 0]}>
             <boxGeometry args={[0.045, 0.16, 0.04]} />
-            <meshStandardMaterial color="#111217" metalness={0.25} roughness={0.4} />
+            <meshStandardMaterial color={iconColor} metalness={0.25} roughness={0.4} />
           </mesh>
           <mesh raycast={() => null} position={[0.03, 0, 0]}>
             <boxGeometry args={[0.045, 0.16, 0.04]} />
-            <meshStandardMaterial color="#111217" metalness={0.25} roughness={0.4} />
+            <meshStandardMaterial color={iconColor} metalness={0.25} roughness={0.4} />
           </mesh>
         </group>
       );
@@ -782,7 +783,7 @@ function TechniqueCard({
   const controlOffsetX = frameWidth / 2 + 0.32;
   const controlOffsetY = frameHeight / 2 + 0.32;
   const controlZ = CARD_DEPTH / 2 + 0.12;
-  const playbackOffsetY = controlOffsetY + 0.32;
+  const playbackOffsetY = controlOffsetY; // Align with rotate buttons
 
   // Force material to update when texture changes
   React.useEffect(() => {
