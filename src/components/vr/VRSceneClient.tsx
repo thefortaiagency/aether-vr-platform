@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { TwilioVideoTexture } from './TwilioVideoTexture';
 // import { TwilioVideoLayer } from './TwilioVideoLayer'; // For VR headset testing
 import { VideoTexture } from './VideoTexture';
+import { VideoTextureSimple } from './VideoTextureSimple';
 import { VRControllerScreenshot } from './VRControllerScreenshot';
 import { AvatarMirror } from './AvatarMirror';
 import { WebcamXRLayer } from './WebcamXRLayer';
@@ -188,6 +189,18 @@ function VRSceneContent({ backgroundImageUrl, showCoach, videoEnabled, showMirro
 
   const { session, isPresenting } = useXR();
   const showXrEnvironment = Boolean(session && isPresenting);
+
+  // Technique videos configuration
+  const radius = 4; // 4 meters from center
+  const videoHeight = 1.6; // Eye level
+  const techniqueVideos = [
+    { name: "Single Leg", angle: 0 },
+    { name: "Double Leg", angle: Math.PI / 3 },
+    { name: "Cradle", angle: (2 * Math.PI) / 3 },
+    { name: "Escape", angle: Math.PI },
+    { name: "Standup", angle: (4 * Math.PI) / 3 },
+    { name: "Switch", angle: (5 * Math.PI) / 3 },
+  ];
 
   // Update layer stack when layers change
   React.useEffect(() => {
