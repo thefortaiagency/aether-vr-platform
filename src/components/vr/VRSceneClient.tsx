@@ -177,6 +177,7 @@ type TechniqueCardState = {
   rotation: [number, number, number];
   scale: number;
   videoUrl: string;
+  label: string;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -566,6 +567,7 @@ function TechniqueCard({
   rotation,
   scale,
   videoUrl,
+  label,
   onPositionChange,
   onScaleChange,
   onRotationChange,
@@ -867,6 +869,21 @@ function TechniqueCard({
           type="minus"
           onActivate={() => adjustScale(-0.18)}
         />
+
+        {/* Label below card */}
+        <Text
+          position={[0, -(frameHeight / 2 + 0.4), CARD_DEPTH / 2 + 0.1]}
+          fontSize={0.15}
+          color="#d4af37"
+          anchorX="center"
+          anchorY="middle"
+          maxWidth={frameWidth}
+          textAlign="center"
+          outlineWidth={0.01}
+          outlineColor="#000000"
+        >
+          {label}
+        </Text>
       </group>
     </group>
   );
@@ -1117,16 +1134,16 @@ function CoachChatCard() {
 }
 
 // Draggable 3D Video Panel for VR
-const TECHNIQUE_CARD_IDS = [
-  'stance',
-  'hand-fight',
-  'setups',
-  'finishes',
-  'mat-returns',
-  'chain',
+const TECHNIQUE_CARDS_DATA = [
+  { id: 'handfight', label: 'HANDFIGHT' },
+  { id: 'double-leg', label: 'DOUBLE LEG' },
+  { id: 'single-leg', label: 'SINGLE LEG' },
+  { id: 'lat-drop', label: 'LAT DROP' },
+  { id: 'stance-motion', label: 'STANCE AND MOTION' },
+  { id: 'high-crotch', label: 'HIGH CROTCH' },
 ] as const;
 
-const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARD_IDS.map((id, index) => {
+const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((card, index) => {
   // 3x2 grid layout - extra small initial size to prevent overlap
   const row = Math.floor(index / 3); // 0 or 1 (top or bottom row)
   const col = index % 3; // 0, 1, or 2 (left, center, right)
@@ -1141,7 +1158,8 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARD_IDS.map((id,
   const z = zDistance;
 
   return {
-    id,
+    id: card.id,
+    label: card.label,
     position: [x, y, z],
     rotation: [0, 0, 0], // All facing forward
     scale: 0.75, // Extra small initial scale - users can make them bigger
