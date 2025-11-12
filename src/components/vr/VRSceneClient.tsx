@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Text, OrbitControls } from '@react-three/drei';
 import { XR, createXRStore, useXR } from '@react-three/xr';
 import * as THREE from 'three';
@@ -171,6 +171,7 @@ type TechniqueCardState = {
   rotation: [number, number, number];
   scale: number;
   color: string;
+  videoUrl: string;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -182,6 +183,139 @@ interface TechniqueCardProps extends TechniqueCardState {
   onScaleChange: (scale: number) => void;
 }
 
+function useTechniqueVideoTexture(videoUrl: string) {
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const textureRef = React.useRef<THREE.VideoTexture | null>(null);
+  const [texture, setTexture] = React.useState<THREE.VideoTexture | null>(null);
+  const [isReady, setIsReady] = React.useState(false);
+  const [isPlaying, setIsPlaying] = React.useState(false);
+  const [isMuted, setIsMuted] = React.useState(true);
+  const [dimensions, setDimensions] = React.useState<{ width: number; height: number }>({
+    width: 16,
+    height: 9,
+  });
+
+  React.useEffect(() => {
+    setIsReady(false);
+    setIsPlaying(false);
+    setIsMuted(true);
+    setTexture(null);
+
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.setAttribute('playsinline', 'true');
+    video.setAttribute('webkit-playsinline', 'true');
+    video.preload = 'auto';
+    video.src = videoUrl;
+    video.style.position = 'absolute';
+    video.style.width = '1px';
+    video.style.height = '1px';
+    video.style.opacity = '0';
+    video.style.pointerEvents = 'none';
+    document.body.appendChild(video);
+
+    const texture = new THREE.VideoTexture(video);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+
+    videoRef.current = video;
+    textureRef.current = texture;
+    setTexture(texture);
+
+    const handleLoadedMetadata = () => {
+      if (video.videoWidth && video.videoHeight) {
+        setDimensions({ width: video.videoWidth, height: video.videoHeight });
+      }
+    };
+
+    const handleLoadedData = () => {
+      setIsReady(true);
+      video
+        .play()
+        .then(() => {
+          setIsPlaying(true);
+        })
+        .catch((error) => {
+          console.warn('[TechniqueCard] Autoplay blocked, waiting for user gesture', error);
+        });
+    };
+
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    const handleVolumeChange = () => setIsMuted(video.muted);
+
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('loadeddata', handleLoadedData);
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
+    video.addEventListener('volumechange', handleVolumeChange);
+
+    video.load();
+
+    return () => {
+      video.pause();
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('loadeddata', handleLoadedData);
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
+      video.removeEventListener('volumechange', handleVolumeChange);
+
+      if (video.parentNode) {
+        video.parentNode.removeChild(video);
+      }
+
+      texture.dispose();
+      videoRef.current = null;
+      textureRef.current = null;
+    };
+  }, [videoUrl]);
+
+  useFrame(() => {
+    if (textureRef.current) {
+      textureRef.current.needsUpdate = true;
+    }
+  });
+
+  const togglePlayback = React.useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.paused) {
+      video
+        .play()
+        .then(() => {
+          setIsPlaying(true);
+        })
+        .catch((error) => console.warn('[TechniqueCard] play() failed', error));
+    } else {
+      video.pause();
+    }
+  }, []);
+
+  const toggleMute = React.useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.muted = !video.muted;
+    setIsMuted(video.muted);
+  }, []);
+
+  return {
+    texture,
+    isReady,
+    isPlaying,
+    isMuted,
+    dimensions,
+    togglePlayback,
+    toggleMute,
+  };
+}
+
 function TechniqueCard({
   title,
   description,
@@ -189,6 +323,7 @@ function TechniqueCard({
   rotation,
   scale,
   color,
+  videoUrl,
   onPositionChange,
   onScaleChange,
 }: TechniqueCardProps) {
@@ -198,11 +333,40 @@ function TechniqueCard({
   const raycaster = React.useMemo(() => new THREE.Raycaster(), []);
   const [isDragging, setIsDragging] = React.useState(false);
   const lastPointerId = React.useRef<number | null>(null);
+  const dragMoved = React.useRef(false);
+
+  const {
+    texture,
+    isReady,
+    isPlaying,
+    isMuted,
+    dimensions,
+    togglePlayback,
+    toggleMute,
+  } = useTechniqueVideoTexture(videoUrl);
+
+  const videoAspect = React.useMemo(() => {
+    if (!dimensions.width || !dimensions.height) {
+      return 16 / 9;
+    }
+    return dimensions.width / dimensions.height;
+  }, [dimensions]);
+
+  const maxVideoWidth = CARD_BASE_SIZE[0] * 0.9;
+  const maxVideoHeight = CARD_BASE_SIZE[1] * 0.55;
+  let videoWidth = maxVideoWidth;
+  let videoHeight = videoWidth / videoAspect;
+
+  if (videoHeight > maxVideoHeight) {
+    videoHeight = maxVideoHeight;
+    videoWidth = videoHeight * videoAspect;
+  }
 
   const handlePointerDown = (event: any) => {
     event.stopPropagation();
     setIsDragging(true);
     lastPointerId.current = event.pointerId ?? null;
+    dragMoved.current = false;
   };
 
   const handlePointerUp = (event: any) => {
@@ -228,6 +392,7 @@ function TechniqueCard({
 
     if (pointer) {
       onPositionChange([pointer.x, pointer.y, position[2]]);
+      dragMoved.current = true;
       return;
     }
 
@@ -237,6 +402,7 @@ function TechniqueCard({
       raycaster.ray.intersectPlane(dragPlane, intersectionPoint);
       if (!Number.isNaN(intersectionPoint.x)) {
         onPositionChange([intersectionPoint.x, intersectionPoint.y, position[2]]);
+        dragMoved.current = true;
       }
     }
   };
@@ -253,90 +419,157 @@ function TechniqueCard({
     adjustScale(delta < 0 ? 0.05 : -0.05);
   };
 
+  const handleCardClick = React.useCallback(
+    (event: any) => {
+      event.stopPropagation();
+      if (dragMoved.current) {
+        dragMoved.current = false;
+        return;
+      }
+      togglePlayback();
+    },
+    [togglePlayback]
+  );
+
+  const statusLabel = React.useMemo(() => {
+    if (!isReady) return 'Loading';
+    return isPlaying ? 'Playing' : 'Paused';
+  }, [isPlaying, isReady]);
+
+  const cardFrontZ = CARD_DEPTH / 2 + 0.002;
+
+  const pointerHandlers = {
+    onPointerDown: handlePointerDown,
+    onPointerUp: handlePointerUp,
+    onPointerMove: handlePointerMove,
+    onPointerCancel: handlePointerUp,
+    onWheel: handleWheel,
+  };
+
   return (
     <group ref={cardRef} position={position} rotation={rotation} scale={scale}>
       <group>
-        <mesh
-          onPointerDown={handlePointerDown}
-          onPointerUp={handlePointerUp}
-          onPointerMove={handlePointerMove}
-          onPointerCancel={handlePointerUp}
-          onWheel={handleWheel}
-        >
+        <mesh {...pointerHandlers}>
           <boxGeometry args={[CARD_BASE_SIZE[0], CARD_BASE_SIZE[1], CARD_DEPTH]} />
           <meshStandardMaterial
             color={color}
-            metalness={0.1}
-            roughness={0.35}
+            metalness={0.15}
+            roughness={0.25}
+            emissive={isPlaying ? '#1c64f2' : '#0f172a'}
+            emissiveIntensity={isPlaying ? 0.35 : 0.2}
             transparent
-            opacity={isDragging ? 0.75 : 0.95}
+            opacity={isDragging ? 0.75 : 0.92}
           />
         </mesh>
-
-        {/* Front face */}
-        <mesh position={[0, 0, CARD_DEPTH / 2 + 0.002]}>
-          <planeGeometry args={[CARD_BASE_SIZE[0] * 0.96, CARD_BASE_SIZE[1] * 0.86]} />
-          <meshBasicMaterial color="#0f172a" opacity={0.92} transparent />
+        <mesh
+          position={[0, 0.05, cardFrontZ]}
+          {...pointerHandlers}
+          onClick={handleCardClick}
+        >
+          <planeGeometry args={[videoWidth, videoHeight]} />
+          {texture ? (
+            <meshBasicMaterial map={texture} toneMapped={false} />
+          ) : (
+            <meshStandardMaterial
+              color="#111827"
+              emissive="#1f2937"
+              emissiveIntensity={0.4}
+              transparent
+              opacity={0.8}
+            />
+          )}
         </mesh>
-
+      </group>
+      <Text
+        position={[0, CARD_BASE_SIZE[1] / 2 - 0.1, cardFrontZ + 0.01]}
+        fontSize={0.14}
+        color="#f8fafc"
+        anchorX="center"
+        anchorY="middle"
+        outlineWidth={0.01}
+        outlineColor="#000000"
+      >
+        {title}
+      </Text>
+      <Text
+        position={[0, CARD_BASE_SIZE[1] / 2 - 0.34, cardFrontZ + 0.01]}
+        fontSize={0.085}
+        color="#e2e8f0"
+        maxWidth={1.3}
+        lineHeight={1.35}
+        anchorX="center"
+        anchorY="top"
+        outlineWidth={0.006}
+        outlineColor="#000000"
+      >
+        {description}
+      </Text>
+      <Text
+        position={[0, -CARD_BASE_SIZE[1] / 2 + 0.18, cardFrontZ + 0.01]}
+        fontSize={0.075}
+        color="#cbd5f5"
+        anchorX="center"
+        anchorY="bottom"
+        outlineWidth={0.005}
+        outlineColor="#000000"
+      >
+        Drag to move • Scroll to resize • Tap video to play/pause
+      </Text>
+      <Text
+        position={[CARD_BASE_SIZE[0] / 2 - 0.12, -CARD_BASE_SIZE[1] / 2 + 0.2, cardFrontZ + 0.01]}
+        fontSize={0.07}
+        color="#38bdf8"
+        anchorX="right"
+        anchorY="bottom"
+        outlineWidth={0.004}
+        outlineColor="#000000"
+      >
+        {scale.toFixed(2)}x
+      </Text>
+      <Text
+        position={[-CARD_BASE_SIZE[0] / 2 + 0.12, -CARD_BASE_SIZE[1] / 2 + 0.2, cardFrontZ + 0.01]}
+        fontSize={0.07}
+        color={isPlaying ? '#34d399' : '#facc15'}
+        anchorX="left"
+        anchorY="bottom"
+        outlineWidth={0.004}
+        outlineColor="#000000"
+      >
+        {statusLabel}
+      </Text>
+      <group
+        position={[CARD_BASE_SIZE[0] / 2 - 0.18, CARD_BASE_SIZE[1] / 2 - 0.22, cardFrontZ + 0.01]}
+        onClick={(event) => {
+          event.stopPropagation();
+          toggleMute();
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+        onPointerUp={(event) => event.stopPropagation()}
+        onPointerMove={(event) => event.stopPropagation()}
+      >
+        <mesh>
+          <circleGeometry args={[0.09, 24]} />
+          <meshStandardMaterial
+            color={isMuted ? '#f97316' : '#34d399'}
+            emissive={isMuted ? '#f97316' : '#34d399'}
+            emissiveIntensity={0.4}
+            transparent
+            opacity={0.65}
+          />
+        </mesh>
         <Text
-          position={[0, CARD_BASE_SIZE[1] * 0.23, CARD_DEPTH / 2 + 0.01]}
-          fontSize={0.12}
-          maxWidth={CARD_BASE_SIZE[0] * 0.8}
-          color="white"
+          position={[0, 0, 0.01]}
+          fontSize={0.1}
+          color="#0f172a"
           anchorX="center"
           anchorY="middle"
         >
-          {title}
+          {isMuted ? '🔇' : '🔊'}
         </Text>
-
-        <Text
-          position={[0, -CARD_BASE_SIZE[1] * 0.05, CARD_DEPTH / 2 + 0.01]}
-          fontSize={0.085}
-          maxWidth={CARD_BASE_SIZE[0] * 0.82}
-          lineHeight={1.2}
-          color="#9ca3af"
-          anchorX="center"
-          anchorY="middle"
-        >
-          {description}
-        </Text>
-
-        <group position={[CARD_BASE_SIZE[0] / 2 + 0.05, 0, CARD_DEPTH / 2 + 0.015]}>
-          <mesh
-            position={[0, 0.18, 0]}
-            scale={[0.3, 0.3, 0.3]}
-            onPointerDown={(event: any) => {
-              event.stopPropagation();
-              adjustScale(0.08);
-            }}
-          >
-            <boxGeometry args={[0.25, 0.1, 0.05]} />
-            <meshStandardMaterial color="#22d3ee" emissive="#0891b2" emissiveIntensity={0.8} />
-            <Text position={[0, 0, 0.03]} fontSize={0.07} color="#0f172a" anchorX="center" anchorY="middle">
-              +
-            </Text>
-          </mesh>
-          <mesh
-            position={[0, -0.18, 0]}
-            scale={[0.3, 0.3, 0.3]}
-            onPointerDown={(event: any) => {
-              event.stopPropagation();
-              adjustScale(-0.08);
-            }}
-          >
-            <boxGeometry args={[0.25, 0.1, 0.05]} />
-            <meshStandardMaterial color="#facc15" emissive="#ca8a04" emissiveIntensity={0.7} />
-            <Text position={[0, 0, 0.03]} fontSize={0.07} color="#0f172a" anchorX="center" anchorY="middle">
-              -
-            </Text>
-          </mesh>
-        </group>
       </group>
     </group>
   );
 }
-
 // Draggable 3D Video Panel for VR
 const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = [
   {
@@ -347,6 +580,7 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = [
     rotation: [0, Math.PI / 14, 0],
     scale: 1,
     color: '#1f2937',
+    videoUrl: '/video/latora30.mp4',
   },
   {
     id: 'hand-fight',
@@ -356,6 +590,7 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = [
     rotation: [0, Math.PI / 26, 0],
     scale: 1,
     color: '#1f2a44',
+    videoUrl: '/video/latora30.mp4',
   },
   {
     id: 'setup',
@@ -365,6 +600,7 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = [
     rotation: [0, -Math.PI / 26, 0],
     scale: 1,
     color: '#1d3557',
+    videoUrl: '/video/latora30.mp4',
   },
   {
     id: 'finish',
@@ -374,6 +610,7 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = [
     rotation: [0, -Math.PI / 18, 0],
     scale: 1,
     color: '#14213d',
+    videoUrl: '/video/latora30.mp4',
   },
   {
     id: 'mat-return',
@@ -383,6 +620,7 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = [
     rotation: [0, Math.PI / 20, 0],
     scale: 0.95,
     color: '#1c1f3a',
+    videoUrl: '/video/latora30.mp4',
   },
   {
     id: 'chain',
@@ -392,6 +630,7 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = [
     rotation: [0, -Math.PI / 28, 0],
     scale: 0.98,
     color: '#192742',
+    videoUrl: '/video/latora30.mp4',
   },
 ];
 
