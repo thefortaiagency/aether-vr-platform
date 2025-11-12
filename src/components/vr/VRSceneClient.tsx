@@ -434,14 +434,12 @@ function useTechniqueVideoTexture(videoUrl: string) {
     video.crossOrigin = 'anonymous';
     video.setAttribute('crossorigin', 'anonymous');
     video.loop = true;
-    video.muted = false;
-    video.defaultMuted = false;
+    video.muted = true; // Must be muted for autoplay to work
+    video.defaultMuted = true;
     video.autoplay = false;
     video.playsInline = true;
     video.setAttribute('playsinline', 'true');
     video.setAttribute('webkit-playsinline', 'true');
-    video.removeAttribute('muted');
-    video.removeAttribute('autoplay');
     video.setAttribute('loop', 'true');
     video.preload = 'auto';
     video.src = resolvedUrl;
@@ -481,12 +479,18 @@ function useTechniqueVideoTexture(videoUrl: string) {
       if (video.readyState >= 2) {
         setIsReady(true);
         markTextureDirty();
+        // Auto-play when ready
+        video.muted = true; // Must be muted for autoplay
+        video.play().catch(err => console.warn('[VIDEO] Autoplay blocked:', err));
       }
     };
 
     const handleCanPlay = () => {
       setIsReady(true);
       markTextureDirty();
+      // Auto-play when ready
+      video.muted = true; // Must be muted for autoplay
+      video.play().catch(err => console.warn('[VIDEO] Autoplay blocked:', err));
     };
 
     const handlePlay = () => {
