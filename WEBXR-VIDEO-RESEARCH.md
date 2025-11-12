@@ -229,7 +229,25 @@ const texture = new THREE.VideoTexture(videoElement);
 
 ---
 
-### Problem 4: Black Texture in VR
+### Problem 4: Camera Pauses When Entering XR
+
+**Symptoms**:
+- MediaStream-based video feed goes black immediately after `sessionstart`
+- No JavaScript errors and video resumes when XR session ends
+
+**Cause**:
+- Quest browsers automatically suspend camera capture unless the WebXR session is created with the `camera-access` optional feature
+
+**Solution**:
+- Ensure every call to `navigator.xr.requestSession` (and `offerSession`) adds `camera-access` to `optionalFeatures`
+- Patch session helpers if the framework does not expose `camera-access`
+
+**Implementation Tip**:
+- Wrap the browser's `requestSession` so it injects `camera-access` into the options object before delegating to the original method.
+
+---
+
+### Problem 5: Black Texture in VR
 
 **Symptoms**:
 - Video element exists and plays
