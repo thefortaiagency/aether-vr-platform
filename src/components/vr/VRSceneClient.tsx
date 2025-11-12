@@ -1254,8 +1254,14 @@ function CoachChatCard({
 
       {/* Microphone button */}
       <Interactive
-        onSelect={() => handleMicClick()}
-        onSqueeze={() => handleMicClick()}
+        onSelect={(e) => {
+          e?.stopPropagation?.();
+          handleMicClick();
+        }}
+        onSqueeze={(e) => {
+          e?.stopPropagation?.();
+          handleMicClick();
+        }}
       >
         <group position={[0, -cardHeight / 2 - 0.45, CARD_DEPTH / 2 + 0.12]}>
           <mesh
@@ -1299,7 +1305,7 @@ function CoachChatCard({
 // Draggable 3D Video Panel for VR
 const TECHNIQUE_CARDS_DATA = [
   { id: 'handfight', label: 'HANDFIGHT' },
-  { id: 'double-leg', label: 'DOUBLE LEG' },
+  // Middle card removed - Coach takes this spot
   { id: 'single-leg', label: 'SINGLE LEG' },
   { id: 'lat-drop', label: 'LAT DROP' },
   { id: 'stance-motion', label: 'STANCE AND MOTION' },
@@ -1334,7 +1340,7 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((c
 function VRSceneContent({ backgroundImageUrl, onScreenshot, onBackgroundReady }: VRSceneProps) {
   const [cards, setCards] = React.useState<TechniqueCardState[]>(() => TECHNIQUE_CARD_PRESETS);
   const [coachCardState, setCoachCardState] = React.useState({
-    position: [5.8, CARD_BASE_HEIGHT + 1.2, -5] as [number, number, number],
+    position: [0, CARD_BASE_HEIGHT + 1.2, -5] as [number, number, number], // Center position (replaced middle card)
     scale: 0.75,
     rotation: [0, 0, 0] as [number, number, number],
   });
