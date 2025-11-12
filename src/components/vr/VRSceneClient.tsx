@@ -28,80 +28,80 @@ const xrStore = createXRStore({
   foveation: 0, // Disable foveated rendering for better quality
 });
 
-// Gymnasium Environment - Curved background screen for VR (full 360° equirect image)
-function EquirectBackground({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
+// Gymnasium Environment - renders a true 360° panorama by wrapping the user in a sphere
+function PanoramaBackground({ backgroundImageUrl }: { backgroundImageUrl?: string }) {
   const { scene } = useThree();
-  const fallbackColor = React.useMemo(() => new THREE.Color(0x05070a), []);
+  const [texture, setTexture] = React.useState<THREE.Texture | null>(null);
 
   React.useEffect(() => {
-    let cancelled = false;
-    let activeTexture: THREE.Texture | null = null;
+    let disposed = false;
+    let nextTexture: THREE.Texture | null = null;
 
-    const resetSceneBackground = () => {
-      scene.background = fallbackColor;
-      scene.environment = null;
-      scene.backgroundIntensity = 1;
-      scene.backgroundBlurriness = 0;
-
-      console.log('[VR BACKGROUND] Using fallback color');
-    };
+    // Always keep the Three.js background/environment clear so only the sphere renders
+    scene.background = null;
+    scene.environment = null;
 
     if (!backgroundImageUrl) {
-      resetSceneBackground();
-      return;
+      setTexture(null);
+      return () => {
+        if (nextTexture) {
+          nextTexture.dispose();
+        }
+      };
     }
-
-    resetSceneBackground();
 
     const loader = new THREE.TextureLoader();
     loader.setCrossOrigin('anonymous');
 
     loader.load(
       backgroundImageUrl,
-      (texture) => {
-        if (cancelled) {
-          texture.dispose();
+      (loaded) => {
+        if (disposed) {
+          loaded.dispose();
           return;
         }
 
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.mapping = THREE.EquirectangularReflectionMapping;
-        texture.wrapS = THREE.ClampToEdgeWrapping;
-        texture.wrapT = THREE.ClampToEdgeWrapping;
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.needsUpdate = true;
+        loaded.colorSpace = THREE.SRGBColorSpace;
+        loaded.wrapS = THREE.ClampToEdgeWrapping;
+        loaded.wrapT = THREE.ClampToEdgeWrapping;
+        loaded.minFilter = THREE.LinearFilter;
+        loaded.magFilter = THREE.LinearFilter;
+        loaded.needsUpdate = true;
 
-        scene.background = texture;
-        scene.environment = texture;
-        scene.backgroundIntensity = 1;
-        scene.backgroundBlurriness = 0;
+        nextTexture = loaded;
+        setTexture(loaded);
 
-        activeTexture = texture;
-
-        console.log('[VR BACKGROUND] Applied 360 texture', {
+        console.log('[VR BACKGROUND] Panorama loaded', {
           url: backgroundImageUrl,
-          texture: texture.uuid,
+          texture: loaded.uuid,
         });
       },
       undefined,
       (error) => {
-        console.error('[VR BACKGROUND] Failed to load 360 asset', error);
-        resetSceneBackground();
+        console.error('[VR BACKGROUND] Failed to load panorama', error);
+        setTexture(null);
       }
     );
 
     return () => {
-      cancelled = true;
-      resetSceneBackground();
-      if (activeTexture) {
-        activeTexture.dispose();
-        activeTexture = null;
+      disposed = true;
+      if (nextTexture) {
+        nextTexture.dispose();
+        nextTexture = null;
       }
     };
-  }, [backgroundImageUrl, fallbackColor, scene]);
+  }, [backgroundImageUrl, scene]);
 
-  return null;
+  if (!texture) {
+    return null;
+  }
+
+  return (
+    <mesh scale={-1} frustumCulled={false}>
+      <sphereGeometry args={[60, 128, 64]} />
+      <meshBasicMaterial map={texture} side={THREE.BackSide} toneMapped={false} />
+    </mesh>
+  );
 }
 
 type TechniqueCardState = {
@@ -361,12 +361,7 @@ function VRSceneContent({ backgroundImageUrl, onScreenshot }: VRSceneProps) {
       <ambientLight intensity={1.0} />
       <directionalLight position={[0, 10, 0]} intensity={1.0} />
 
-      <EquirectBackground backgroundImageUrl={backgroundImageUrl} />
-
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-        <planeGeometry args={[120, 120]} />
-        <meshStandardMaterial color="#0f172a" metalness={0.05} roughness={0.9} />
-      </mesh>
+      <PanoramaBackground backgroundImageUrl={backgroundImageUrl} />
 
       <group position={[0, 1.35, -3]}>
         {cards.map((card) => (
