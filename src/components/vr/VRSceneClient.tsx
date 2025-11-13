@@ -1438,30 +1438,44 @@ const TECHNIQUE_CARDS_DATA = [
 ] as const;
 
 const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((card, index) => {
-  // Circular layout: 27 total positions (26 videos + 1 coach position at index 0)
-  // Videos start at index 1, so coach will be at angle 0 (straight ahead)
+  // Circular layout: 27 total positions in 2 rows (26 videos + 1 coach position at index 0)
+  // Top row: 14 cards (indices 0-13)
+  // Bottom row: 13 cards (indices 14-25, plus coach makes 14)
   const totalPositions = 27;
+  const cardsPerRow = Math.ceil(totalPositions / 2); // 14 cards in top row
   const radius = 5; // 5 meters from center
-  const heightAboveGround = CARD_BASE_HEIGHT + 1.5; // Eye level
 
   // Video cards start at position 1 (position 0 reserved for coach)
   const cardPosition = index + 1;
 
-  // Calculate angle for this card (in radians)
-  const angle = (cardPosition / totalPositions) * Math.PI * 2;
+  // Determine which row (0 = top, 1 = bottom)
+  const row = cardPosition < cardsPerRow ? 0 : 1;
+  const positionInRow = row === 0 ? cardPosition : cardPosition - cardsPerRow;
+  const cardsInThisRow = row === 0 ? cardsPerRow : (totalPositions - cardsPerRow);
+
+  // Height for each row
+  const topRowHeight = CARD_BASE_HEIGHT + 2.0; // Higher
+  const bottomRowHeight = CARD_BASE_HEIGHT + 1.0; // Lower
+  const y = row === 0 ? topRowHeight : bottomRowHeight;
+
+  // Calculate angle for this card in its row (in radians)
+  const angle = (positionInRow / cardsInThisRow) * Math.PI * 2;
 
   // Calculate position on circle
   // In Three.js: -Z is forward, +X is right, +Y is up
   const x = radius * Math.sin(angle);
   const z = -radius * Math.cos(angle);
-  const y = heightAboveGround;
+
+  // Calculate rotation to face inward toward center
+  // atan2 gives us the angle from center to the card, we need the opposite
+  const rotationY = Math.atan2(x, z);
 
   return {
     id: card.id,
     label: card.label,
     position: [x, y, z],
-    rotation: [0, angle, 0], // Rotate to face inward toward center
-    scale: 0.5, // Smaller cards - users can make them bigger
+    rotation: [0, rotationY, 0], // Properly face inward toward center
+    scale: 0.5,
     videoUrl: card.videoUrl,
   };
 });
@@ -1508,6 +1522,38 @@ function VRSceneContent({ backgroundImageUrl, onScreenshot, onBackgroundReady }:
   const updateCoachRotation = React.useCallback((rotation: [number, number, number]) => {
     setCoachCardState((prev) => ({ ...prev, rotation }));
   }, []);
+
+  // Keyboard shortcut to export all card positions (Press 'P' to export)
+  React.useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === 'p' || event.key === 'P') {
+        console.log('========== VR CARD POSITIONS EXPORT ==========');
+        console.log('Coach Card:', {
+          position: coachCardState.position,
+          rotation: coachCardState.rotation,
+          scale: coachCardState.scale,
+        });
+        console.log('\nTechnique Cards:');
+        cards.forEach((card, index) => {
+          console.log(`${index + 1}. ${card.label}:`, {
+            id: card.id,
+            position: card.position,
+            rotation: card.rotation,
+            scale: card.scale,
+          });
+        });
+        console.log('============================================');
+
+        // Also log as copyable code
+        console.log('\n// Copyable preset data:');
+        console.log('const COACH_PRESET = ', JSON.stringify(coachCardState, null, 2));
+        console.log('const CARDS_PRESET = ', JSON.stringify(cards, null, 2));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [cards, coachCardState]);
 
   return (
     <>
