@@ -1438,26 +1438,29 @@ const TECHNIQUE_CARDS_DATA = [
 ] as const;
 
 const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((card, index) => {
-  // Grid layout: 6 columns x 5 rows = 30 positions (26 videos)
-  const cols = 6;
-  const xSpacing = 1.8; // Slightly tighter for 6 columns
-  const ySpacing = 1.8; // Closer together vertically
-  const zDistance = -4; // Closer to user
+  // Circular layout: 27 total positions (26 videos + 1 coach position at index 0)
+  // Videos start at index 1, so coach will be at angle 0 (straight ahead)
+  const totalPositions = 27;
+  const radius = 5; // 5 meters from center
+  const heightAboveGround = CARD_BASE_HEIGHT + 1.5; // Eye level
 
-  const col = index % cols; // 0-5
-  const row = Math.floor(index / cols); // 0, 1, 2, 3, 4
+  // Video cards start at position 1 (position 0 reserved for coach)
+  const cardPosition = index + 1;
 
-  // Center the grid horizontally
-  const x = (col - (cols - 1) / 2) * xSpacing; // -4.5, -2.7, -0.9, 0.9, 2.7, 4.5
-  const y = CARD_BASE_HEIGHT + 1.5 - (row * ySpacing); // Top to bottom
+  // Calculate angle for this card (in radians)
+  const angle = (cardPosition / totalPositions) * Math.PI * 2;
 
-  const z = zDistance;
+  // Calculate position on circle
+  // In Three.js: -Z is forward, +X is right, +Y is up
+  const x = radius * Math.sin(angle);
+  const z = -radius * Math.cos(angle);
+  const y = heightAboveGround;
 
   return {
     id: card.id,
     label: card.label,
     position: [x, y, z],
-    rotation: [0, 0, 0], // All facing forward
+    rotation: [0, angle, 0], // Rotate to face inward toward center
     scale: 0.5, // Smaller cards - users can make them bigger
     videoUrl: card.videoUrl,
   };
@@ -1467,8 +1470,8 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((c
 function VRSceneContent({ backgroundImageUrl, onScreenshot, onBackgroundReady }: VRSceneProps) {
   const [cards, setCards] = React.useState<TechniqueCardState[]>(() => TECHNIQUE_CARD_PRESETS);
   const [coachCardState, setCoachCardState] = React.useState({
-    position: [0, CARD_BASE_HEIGHT + 4.2, -5] as [number, number, number], // Higher above all cards (centered)
-    scale: 0.75,
+    position: [0, CARD_BASE_HEIGHT + 1.5, -5] as [number, number, number], // Position 0 in circle (straight ahead)
+    scale: 0.5,
     rotation: [0, 0, 0] as [number, number, number],
   });
   const { isPresenting } = useXR();
