@@ -1407,35 +1407,38 @@ function CoachChatCard({
   );
 }
 
-// Draggable 3D Video Panel for VR
+// Draggable 3D Video Panel for VR - ALL Cloudflare Stream videos
 const TECHNIQUE_CARDS_DATA = [
-  { id: 'handfight', label: 'HANDFIGHT' },
-  // Middle card removed - Coach takes this spot
-  { id: 'single-leg', label: 'SINGLE LEG' },
-  { id: 'lat-drop', label: 'LAT DROP' },
-  { id: 'stance-motion', label: 'STANCE AND MOTION' },
-  { id: 'high-crotch', label: 'HIGH CROTCH' },
+  { id: 'latora-5', label: '5', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/5cdbae66f8ee0443d77fcae0bceef3c3/manifest/video.m3u8' },
+  { id: 'latora-7', label: '7', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/2873ac9fa68aebe40b468ac8fed3a464/manifest/video.m3u8' },
+  { id: 'latora-10', label: '10', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/c82782d6c1e7510af33f6a4ad4316da2/manifest/video.m3u8' },
+  { id: 'latora-11', label: '11', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/ca81241e5191d111efa9b61a071fd6f6/manifest/video.m3u8' },
+  { id: 'latora-17', label: '17', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/adb7f414e7fa2cd2f732487fc02c9cc6/manifest/video.m3u8' },
+  { id: 'latora-18', label: '18', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/608b4a61372622c7cb80e596c85121a6/manifest/video.m3u8' },
+  { id: 'latora-20', label: '20', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/0b1cd41fcb5bcbbaf21ce5b4a5fd90f7/manifest/video.m3u8' },
+  { id: 'latora-21', label: '21', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/ca7f17ed70094a93542b4ed81b3dfa92/manifest/video.m3u8' },
+  { id: 'latora-22', label: '22', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/d9900e316d59f37a7277f732e1056b50/manifest/video.m3u8' },
+  { id: 'latora-23', label: '23', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/2312097c1d89808166bf2f3abf17cb1f/manifest/video.m3u8' },
+  { id: 'latora-25', label: '25', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/65a5beada7fe08cde3eafafcb3437dc5/manifest/video.m3u8' },
+  { id: 'latora-26', label: '26', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/a33ed8a91bdbcd5b5fa02a9f063af7e4/manifest/video.m3u8' },
+  { id: 'latora-27', label: '27', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/aca2f7cd37a92a8584cc5557885e5464/manifest/video.m3u8' },
+  { id: 'latora-28', label: '28', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/10f96e361fb7bc9fba72e03cab627bf2/manifest/video.m3u8' },
+  { id: 'latora-29', label: '29', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/92f373dcd7f6ef1ffd56f82cade76d2b/manifest/video.m3u8' },
 ] as const;
 
 const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((card, index) => {
-  // 5 cards layout: 3 on top row, 2 on bottom row (centered)
-  const xSpacing = 2.8;
-  const ySpacing = 2.2;
-  const zDistance = -5;
+  // Grid layout: 5 columns x 3 rows = 15 cards
+  const cols = 5;
+  const xSpacing = 2.0; // Closer together
+  const ySpacing = 1.8; // Closer together vertically
+  const zDistance = -4; // Closer to user
 
-  let x, y;
+  const col = index % cols; // 0-4
+  const row = Math.floor(index / cols); // 0, 1, 2
 
-  if (index < 3) {
-    // Top row: 3 cards (indices 0, 1, 2)
-    const col = index; // 0, 1, 2
-    x = (col - 1) * xSpacing; // -2.8, 0, 2.8
-    y = CARD_BASE_HEIGHT + 1.2;
-  } else {
-    // Bottom row: 2 cards (indices 3, 4) - centered
-    const col = index - 3; // 0, 1
-    x = (col - 0.5) * xSpacing; // -1.4, 1.4 (centered between positions)
-    y = CARD_BASE_HEIGHT + 1.2 - ySpacing;
-  }
+  // Center the grid horizontally
+  const x = (col - (cols - 1) / 2) * xSpacing; // -4, -2, 0, 2, 4
+  const y = CARD_BASE_HEIGHT + 1.5 - (row * ySpacing); // Top to bottom
 
   const z = zDistance;
 
@@ -1444,8 +1447,8 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((c
     label: card.label,
     position: [x, y, z],
     rotation: [0, 0, 0], // All facing forward
-    scale: 0.75, // Extra small initial scale - users can make them bigger
-    videoUrl: '/video/latora30.mp4',
+    scale: 0.5, // Smaller cards - users can make them bigger
+    videoUrl: card.videoUrl,
   };
 });
 
