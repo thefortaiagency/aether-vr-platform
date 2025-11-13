@@ -1060,7 +1060,9 @@ function CoachChatCard({
 
         try {
           console.log('📡 Sending audio to Whisper API...');
-          const response = await fetch('http://localhost:3002/api/vr-voice-chat', {
+          // Use environment variable or fall back to current origin
+          const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
+          const response = await fetch(`${apiUrl}/api/vr-voice-chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'audio/webm' },
             body: audioBlob,
