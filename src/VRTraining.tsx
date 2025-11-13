@@ -28,9 +28,33 @@ function VRTraining() {
   const [screenshotStatus, setScreenshotStatus] = useState('');
   const [vrActive, setVRActive] = useState(false);
   const [generatingBackground, setGeneratingBackground] = useState(false);
+  const [micPermissionGranted, setMicPermissionGranted] = useState(false);
+  const [micPermissionStatus, setMicPermissionStatus] = useState('');
 
   // Ref to access the VR scene container
   const sceneContainerRef = useRef<HTMLDivElement>(null);
+
+  // Request microphone permission on mount (BEFORE entering VR)
+  useEffect(() => {
+    const requestMicPermission = async () => {
+      try {
+        console.log('🎤 Requesting microphone permission...');
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        // Stop the stream immediately (we just needed permission)
+        stream.getTracks().forEach(track => track.stop());
+
+        console.log('✅ Microphone permission granted!');
+        setMicPermissionGranted(true);
+        setMicPermissionStatus('✅ Mic ready for VR');
+      } catch (error: any) {
+        console.error('❌ Microphone permission denied:', error);
+        setMicPermissionStatus('⚠️ Mic needed for voice chat');
+      }
+    };
+
+    requestMicPermission();
+  }, []);
 
   useEffect(() => {
     setPanoramaReady(false);
@@ -176,8 +200,13 @@ function VRTraining() {
       )}
 
       {/* VR Button - Enter VR mode */}
-      <div className="absolute top-6 right-6 z-50">
+      <div className="absolute top-6 right-6 z-50 flex flex-col items-end gap-2">
         <VRButton />
+        {micPermissionStatus && (
+          <div className="text-sm text-white bg-black/70 backdrop-blur-md px-4 py-2 rounded-lg border border-white/30">
+            {micPermissionStatus}
+          </div>
+        )}
       </div>
 
       {/* Controls - Bottom Center */}
