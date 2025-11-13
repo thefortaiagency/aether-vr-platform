@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/vr-voice-chat.js": {
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
     {
       "source": "/api/vr-voice-chat",

@@ -3,6 +3,13 @@ import { writeFileSync, unlinkSync, createReadStream } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
+// Vercel config for binary body handling
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -41,6 +48,16 @@ const COACH_ANDY_PERSONA = `You are Coach Andy O'Berlin - Indiana Coach of the Y
 
 Keep responses under 3 sentences. Be the coach they need - tough, direct, and caring.`;
 
+// Helper to read raw body as buffer
+async function getRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -58,15 +75,18 @@ export default async function handler(req, res) {
   }
 
   try {
-    if (!req.body || req.body.length === 0) {
+    // Read raw body as buffer
+    const audioBuffer = await getRawBody(req);
+
+    if (!audioBuffer || audioBuffer.length === 0) {
       return res.status(400).json({ error: 'No audio data received' });
     }
 
-    console.log('🎤 Received audio data:', req.body.length, 'bytes');
+    console.log('🎤 Received audio data:', audioBuffer.length, 'bytes');
 
     // Save audio to temporary file for Whisper
     const tempFile = join(tmpdir(), `audio-${Date.now()}.webm`);
-    writeFileSync(tempFile, req.body);
+    writeFileSync(tempFile, audioBuffer);
 
     console.log('💾 Saved audio to:', tempFile);
 
