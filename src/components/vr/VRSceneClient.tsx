@@ -1459,7 +1459,10 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((c
   const y = row === 0 ? topRowHeight : bottomRowHeight;
 
   // Calculate angle for this card in its row (in radians)
-  const angle = (positionInRow / cardsInThisRow) * Math.PI * 2;
+  // Offset top row by half the bottom row spacing to center cards between bottom cards
+  const bottomRowSpacing = (Math.PI * 2) / (totalPositions - cardsPerRow); // 2π / 13
+  const angleOffset = row === 0 ? bottomRowSpacing / 2 : 0; // Offset top row only
+  const angle = (positionInRow / cardsInThisRow) * Math.PI * 2 + angleOffset;
 
   // Calculate position on circle
   // In Three.js: -Z is forward, +X is right, +Y is up
