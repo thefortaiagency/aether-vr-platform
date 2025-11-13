@@ -1443,7 +1443,7 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((c
   // Bottom row: 13 cards (indices 14-25, plus coach makes 14)
   const totalPositions = 27;
   const cardsPerRow = Math.ceil(totalPositions / 2); // 14 cards in top row
-  const radius = 5; // 5 meters from center
+  const radius = 8; // 8 meters from center - increased to prevent overlapping
 
   // Video cards start at position 1 (position 0 reserved for coach)
   const cardPosition = index + 1;
@@ -1484,7 +1484,7 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((c
 function VRSceneContent({ backgroundImageUrl, onScreenshot, onBackgroundReady }: VRSceneProps) {
   const [cards, setCards] = React.useState<TechniqueCardState[]>(() => TECHNIQUE_CARD_PRESETS);
   const [coachCardState, setCoachCardState] = React.useState({
-    position: [0, CARD_BASE_HEIGHT + 1.5, -5] as [number, number, number], // Position 0 in circle (straight ahead)
+    position: [0, CARD_BASE_HEIGHT + 1.5, -3] as [number, number, number], // Inside the circle (straight ahead, 3m away)
     scale: 0.5,
     rotation: [0, 0, 0] as [number, number, number],
   });
