@@ -21,6 +21,7 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.raw({ type: 'audio/webm', limit: '10mb' }));
 
 // Twilio credentials from environment
 const {
@@ -86,6 +87,130 @@ app.post('/api/twilio/video-token', (req, res) => {
     res.status(500).json({
       error: 'Failed to generate token',
       message: error.message
+    });
+  }
+});
+
+// VR Voice Chat with Whisper transcription + Coach Andy response
+app.post('/api/vr-voice-chat', async (req, res) => {
+  try {
+    if (!req.body || req.body.length === 0) {
+      return res.status(400).json({ error: 'No audio data received' });
+    }
+
+    console.log('🎤 Received audio data:', req.body.length, 'bytes');
+
+    // Save audio to temporary file for Whisper
+    const fs = await import('fs');
+    const path = await import('path');
+    const { fileURLToPath } = await import('url');
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+
+    const tempDir = path.join(__dirname, 'temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const tempFile = path.join(tempDir, `audio-${Date.now()}.webm`);
+    fs.writeFileSync(tempFile, req.body);
+
+    console.log('💾 Saved audio to:', tempFile);
+
+    // Transcribe with Whisper
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(tempFile),
+      model: 'whisper-1',
+    });
+
+    const transcript = transcription.text;
+    console.log('🗣️ Whisper transcription:', transcript);
+
+    // Delete temp file
+    fs.unlinkSync(tempFile);
+
+    if (!transcript || transcript.trim().length === 0) {
+      return res.json({
+        transcript: '',
+        response: "Didn't catch that. Speak louder!",
+        audioUrl: null
+      });
+    }
+
+    // Get Coach Andy response
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: COACH_ANDY_PERSONA
+        },
+        {
+          role: "user",
+          content: transcript
+        }
+      ],
+      temperature: 0.8,
+      max_tokens: 150,
+    });
+
+    let response = completion.choices[0]?.message?.content ||
+      "Good work! Keep pushing yourself!";
+
+    // Clean any markdown
+    response = response
+      .replace(/\*\*/g, '')
+      .replace(/\*/g, '')
+      .replace(/#{1,6}\s/g, '')
+      .trim();
+
+    console.log(`💬 Coach Andy: "${transcript}" → "${response}"`);
+
+    // Generate audio with ElevenLabs
+    let audioUrl = null;
+    if (process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID) {
+      try {
+        const elevenLabsResponse = await fetch(
+          `https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVENLABS_VOICE_ID}`,
+          {
+            method: 'POST',
+            headers: {
+              'Accept': 'audio/mpeg',
+              'Content-Type': 'application/json',
+              'xi-api-key': process.env.ELEVENLABS_API_KEY
+            },
+            body: JSON.stringify({
+              text: response,
+              model_id: 'eleven_monolingual_v1',
+              voice_settings: {
+                stability: 0.5,
+                similarity_boost: 0.75
+              }
+            })
+          }
+        );
+
+        if (elevenLabsResponse.ok) {
+          const audioBuffer = await elevenLabsResponse.arrayBuffer();
+          const base64Audio = Buffer.from(audioBuffer).toString('base64');
+          audioUrl = `data:audio/mpeg;base64,${base64Audio}`;
+          console.log(`🔊 Generated audio for Coach Andy response`);
+        }
+      } catch (audioError) {
+        console.error('❌ ElevenLabs Error:', audioError);
+      }
+    }
+
+    res.json({ transcript, response, audioUrl });
+
+  } catch (error) {
+    console.error('❌ Voice chat error:', error);
+    res.status(500).json({
+      error: 'Failed to process audio',
+      transcript: '',
+      response: "Technical difficulties! Keep training!",
+      audioUrl: null
     });
   }
 });

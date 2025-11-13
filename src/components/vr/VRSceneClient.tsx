@@ -959,9 +959,10 @@ function CoachChatCard({
   const [coachResponse, setCoachResponse] = React.useState("Hey wrestler! Ask me anything about technique.");
   const [isListening, setIsListening] = React.useState(false);
   const [isProcessing, setIsProcessing] = React.useState(false);
-  const recognitionRef = React.useRef<any>(null);
+  const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
+  const audioChunksRef = React.useRef<Blob[]>([]);
   const listeningTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  const isStoppingRef = React.useRef(false);
+  const audioStreamRef = React.useRef<MediaStream | null>(null);
 
   // Drag handling
   const cardRef = React.useRef<THREE.Group>(null);
@@ -976,184 +977,142 @@ function CoachChatCard({
     dragPlaneRef.current.constant = -position[2];
   }, [position[2]]);
 
-  // Initialize Web Speech API
+  // Cleanup MediaRecorder on unmount
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      console.error('❌ Speech Recognition not available');
-      setCoachResponse("Voice not supported. Chrome/Edge on Meta Quest recommended.");
-      return;
-    }
-
-    console.log('✅ Speech Recognition available, initializing...');
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.lang = 'en-US';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-      // Prevent re-entry if we're already stopping
-      if (isStoppingRef.current) {
-        console.log('⚠️ Ignoring onstart - already stopping');
-        return;
-      }
-
-      console.log('🎤 Speech recognition started');
-      setIsListening(true);
-      setCoachResponse("I'm listening...");
-
-      // Set timeout to auto-stop after 5 seconds
-      listeningTimeoutRef.current = setTimeout(() => {
-        console.log('⏱️ Listening timeout - ABORTING recognition');
-        isStoppingRef.current = true;
-
-        if (recognitionRef.current) {
-          try {
-            // Use abort() instead of stop() - more forceful, no events fired
-            recognitionRef.current.abort();
-          } catch (err) {
-            console.error('Error aborting recognition:', err);
-          }
-        }
-
-        // Force UI state update
-        setIsListening(false);
-        setCoachResponse("Didn't hear anything. Try again!");
-
-        // Reset flag after a brief delay
-        setTimeout(() => {
-          isStoppingRef.current = false;
-        }, 500);
-      }, 5000);
-    };
-
-    recognition.onresult = async (event: any) => {
-      // Clear timeout since speech was detected
-      if (listeningTimeoutRef.current) {
-        clearTimeout(listeningTimeoutRef.current);
-        listeningTimeoutRef.current = null;
-      }
-
-      // Reset stopping flag
-      isStoppingRef.current = false;
-
-      const transcript = event.results[0][0].transcript;
-      console.log('🗣️ Speech detected:', transcript);
-      setCoachResponse(`You: "${transcript}"`);
-      setIsProcessing(true);
-
-      try {
-        console.log('📡 Sending to Coach Andy API...');
-        const response = await fetch('http://localhost:3002/api/vr-coach-chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: transcript }),
-        });
-
-        const data = await response.json();
-        console.log('✅ Coach response:', data.response);
-        setCoachResponse(data.response || "Keep working hard!");
-
-        // Play audio if available
-        if (data.audioUrl) {
-          console.log('🔊 Playing Coach Andy audio...');
-          const audio = new Audio(data.audioUrl);
-          audio.play().catch((err) => {
-            console.error('❌ Audio playback error:', err);
-          });
-        }
-      } catch (error) {
-        console.error('❌ Coach API error:', error);
-        setCoachResponse("That's the spirit! Keep grinding!");
-      } finally {
-        setIsProcessing(false);
-        setIsListening(false);
-      }
-    };
-
-    recognition.onerror = (event: any) => {
-      // Clear timeout on error
-      if (listeningTimeoutRef.current) {
-        clearTimeout(listeningTimeoutRef.current);
-        listeningTimeoutRef.current = null;
-      }
-
-      // Reset stopping flag
-      isStoppingRef.current = false;
-
-      console.error('❌ Speech recognition error:', event.error, event);
-      setIsListening(false);
-      setIsProcessing(false);
-
-      if (event.error === 'aborted') {
-        // This is intentional from our timeout - don't show as error
-        console.log('✅ Recognition aborted intentionally (timeout)');
-        // Message already set by timeout handler
-      } else if (event.error === 'no-speech') {
-        setCoachResponse("Didn't catch that. Try again!");
-      } else if (event.error === 'not-allowed') {
-        setCoachResponse("Microphone blocked! Grant mic permission in browser settings.");
-      } else if (event.error === 'network') {
-        setCoachResponse("Network error. Check connection.");
-      } else {
-        setCoachResponse(`Error: ${event.error}. Click mic to retry.`);
-      }
-    };
-
-    recognition.onend = () => {
-      // Clear timeout when recognition ends
-      if (listeningTimeoutRef.current) {
-        clearTimeout(listeningTimeoutRef.current);
-        listeningTimeoutRef.current = null;
-      }
-      setIsListening(false);
-    };
-
-    recognitionRef.current = recognition;
-
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+      if (audioStreamRef.current) {
+        audioStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+      if (listeningTimeoutRef.current) {
+        clearTimeout(listeningTimeoutRef.current);
       }
     };
   }, []);
 
-  const handleMicClick = React.useCallback((e?: any) => {
+  const handleMicClick = React.useCallback(async (e?: any) => {
     if (e) {
       e.stopPropagation();
     }
-    if (isListening) {
-      // Clear timeout when manually stopping
+
+    // If currently recording, stop and send
+    if (isListening && mediaRecorderRef.current) {
+      console.log('🛑 Stopping recording...');
       if (listeningTimeoutRef.current) {
         clearTimeout(listeningTimeoutRef.current);
         listeningTimeoutRef.current = null;
       }
-      isStoppingRef.current = true;
-      recognitionRef.current?.abort();
+      mediaRecorderRef.current.stop();
       setIsListening(false);
+      return;
+    }
 
-      // Reset flag after brief delay
-      setTimeout(() => {
-        isStoppingRef.current = false;
-      }, 500);
-    } else if (!isProcessing && !isStoppingRef.current && recognitionRef.current) {
-      try {
-        console.log('🎤 Starting speech recognition...');
-        recognitionRef.current.start();
-        setCoachResponse("Starting mic... Speak now!");
-      } catch (error: any) {
-        console.error('❌ Speech recognition error:', error);
-        if (error.message?.includes('already started')) {
-          setCoachResponse("Mic already active. Speak now!");
-        } else {
-          setCoachResponse(`Mic error: ${error.message}. Try refreshing.`);
+    // If processing, ignore click
+    if (isProcessing) {
+      console.log('⏳ Already processing, ignoring click');
+      return;
+    }
+
+    // Start new recording
+    try {
+      console.log('🎤 Requesting microphone access...');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStreamRef.current = stream;
+
+      console.log('✅ Microphone access granted, starting recording...');
+
+      audioChunksRef.current = [];
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+          console.log('📦 Audio chunk received:', event.data.size, 'bytes');
         }
+      };
+
+      mediaRecorder.onstop = async () => {
+        console.log('🎬 Recording stopped, processing audio...');
+        setIsListening(false);
+        setIsProcessing(true);
+        setCoachResponse("Processing...");
+
+        // Stop all tracks
+        if (audioStreamRef.current) {
+          audioStreamRef.current.getTracks().forEach(track => track.stop());
+          audioStreamRef.current = null;
+        }
+
+        if (audioChunksRef.current.length === 0) {
+          console.error('❌ No audio data recorded');
+          setCoachResponse("No audio captured. Try again!");
+          setIsProcessing(false);
+          return;
+        }
+
+        // Combine all audio chunks into single blob
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        console.log('🎵 Audio blob created:', audioBlob.size, 'bytes');
+
+        try {
+          console.log('📡 Sending audio to Whisper API...');
+          const response = await fetch('http://localhost:3002/api/vr-voice-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'audio/webm' },
+            body: audioBlob,
+          });
+
+          const data = await response.json();
+          console.log('✅ Server response:', data);
+
+          if (data.transcript) {
+            setCoachResponse(`You: "${data.transcript}"\n\n${data.response}`);
+          } else {
+            setCoachResponse(data.response || "Keep working hard!");
+          }
+
+          // Play audio if available
+          if (data.audioUrl) {
+            console.log('🔊 Playing Coach Andy audio...');
+            const audio = new Audio(data.audioUrl);
+            audio.play().catch((err) => {
+              console.error('❌ Audio playback error:', err);
+            });
+          }
+        } catch (error) {
+          console.error('❌ Server error:', error);
+          setCoachResponse("Connection error. Is the server running?");
+        } finally {
+          setIsProcessing(false);
+          audioChunksRef.current = [];
+        }
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsListening(true);
+      setCoachResponse("Listening... Speak now!");
+
+      // Auto-stop after 5 seconds
+      listeningTimeoutRef.current = setTimeout(() => {
+        console.log('⏱️ Auto-stop timeout (5 seconds)');
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop();
+        }
+      }, 5000);
+
+    } catch (error: any) {
+      console.error('❌ Microphone error:', error);
+      if (error.name === 'NotAllowedError') {
+        setCoachResponse("Mic blocked! Grant permission in browser settings.");
+      } else {
+        setCoachResponse(`Mic error: ${error.message}`);
       }
+      setIsListening(false);
     }
   }, [isListening, isProcessing]);
 
