@@ -141,6 +141,10 @@ export default async function handler(req, res) {
 
     // Generate audio with ElevenLabs (optional)
     let audioUrl = null;
+    const hasElevenLabsKey = !!process.env.ELEVENLABS_API_KEY;
+    const hasElevenLabsVoice = !!process.env.ELEVENLABS_VOICE_ID;
+    console.log(`🔑 ElevenLabs: key=${hasElevenLabsKey}, voice=${hasElevenLabsVoice}`);
+
     if (process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID) {
       try {
         const elevenLabsResponse = await fetch(
@@ -163,11 +167,16 @@ export default async function handler(req, res) {
           }
         );
 
+        console.log(`📞 ElevenLabs API status: ${elevenLabsResponse.status}`);
+
         if (elevenLabsResponse.ok) {
           const audioBuffer = await elevenLabsResponse.arrayBuffer();
           const base64Audio = Buffer.from(audioBuffer).toString('base64');
           audioUrl = `data:audio/mpeg;base64,${base64Audio}`;
-          console.log(`🔊 Generated audio for Coach Andy response`);
+          console.log(`🔊 Generated audio for Coach Andy response (${base64Audio.length} chars)`);
+        } else {
+          const errorText = await elevenLabsResponse.text();
+          console.error(`❌ ElevenLabs API Error ${elevenLabsResponse.status}:`, errorText);
         }
       } catch (audioError) {
         console.error('❌ ElevenLabs Error:', audioError);
