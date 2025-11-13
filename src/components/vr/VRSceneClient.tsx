@@ -1443,7 +1443,7 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((c
   // Bottom row: 13 cards (indices 14-25, plus coach makes 14)
   const totalPositions = 27;
   const cardsPerRow = Math.ceil(totalPositions / 2); // 14 cards in top row
-  const radius = 8; // 8 meters from center - increased to prevent overlapping
+  const radius = 6; // 6 meters from center - balanced between spacing and proximity
 
   // Video cards start at position 1 (position 0 reserved for coach)
   const cardPosition = index + 1;
