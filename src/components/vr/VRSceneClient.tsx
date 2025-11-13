@@ -1090,7 +1090,11 @@ function CoachChatCard({
       setIsListening(false);
       setIsProcessing(false);
 
-      if (event.error === 'no-speech') {
+      if (event.error === 'aborted') {
+        // This is intentional from our timeout - don't show as error
+        console.log('✅ Recognition aborted intentionally (timeout)');
+        // Message already set by timeout handler
+      } else if (event.error === 'no-speech') {
         setCoachResponse("Didn't catch that. Try again!");
       } else if (event.error === 'not-allowed') {
         setCoachResponse("Microphone blocked! Grant mic permission in browser settings.");
