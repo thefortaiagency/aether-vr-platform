@@ -142,7 +142,7 @@ function VRTraining() {
   };
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full" data-xr-overlay-root>
       {/* Full-screen background image */}
       {backgroundImageUrl && !panoramaReady && (
         <div

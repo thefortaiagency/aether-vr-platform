@@ -4,6 +4,7 @@ import React from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, RoundedBox, Text, useTexture } from '@react-three/drei';
 import { XR, createXRStore, useXR, Interactive } from '@react-three/xr';
+import type { XRStore } from '@react-three/xr';
 import * as THREE from 'three';
 import { VRControllerScreenshot } from './VRControllerScreenshot';
 
@@ -28,11 +29,46 @@ interface VRSceneProps {
   onBackgroundReady?: (ready: boolean) => void;
 }
 
+let xrStoreSingleton: XRStore | null = null;
+
+function resolveDomOverlayRoot(): HTMLElement | undefined {
+  if (typeof document === 'undefined') {
+    return undefined;
+  }
+
+  const explicitOverlay = document.querySelector<HTMLElement>('[data-xr-overlay-root]');
+  if (explicitOverlay) {
+    explicitOverlay.dataset.xrDomOverlay = 'true';
+    return explicitOverlay;
+  }
+
+  const reactRoot = document.getElementById('root');
+  if (reactRoot instanceof HTMLElement) {
+    reactRoot.dataset.xrDomOverlay = 'true';
+    return reactRoot;
+  }
+
+  return undefined;
+}
+
+export function getXRStore(): XRStore {
+  if (!xrStoreSingleton) {
+    const domOverlayRoot = resolveDomOverlayRoot();
+    xrStoreSingleton = createXRStore({
+      foveation: 0,
+      domOverlay: domOverlayRoot ?? true,
+      handTracking: true,
+      layers: true,
+      hitTest: true,
+    });
+  }
+
+  return xrStoreSingleton;
+}
+
 // Create XR store OUTSIDE component to prevent recreation on re-renders
 // Request 'layers' feature for WebXR Layers API support
-const xrStore = createXRStore({
-  foveation: 0, // Disable foveated rendering for better quality
-});
+const xrStore = getXRStore();
 
 // Gymnasium Environment - renders a true 360° panorama by wrapping the user in a sphere
 const PANORAMA_ROTATION: [number, number, number] = [0, Math.PI, Math.PI];
