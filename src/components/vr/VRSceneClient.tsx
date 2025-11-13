@@ -1407,14 +1407,24 @@ function CoachChatCard({
   );
 }
 
-// Draggable 3D Video Panel for VR - ALL Cloudflare Stream videos
+// Draggable 3D Video Panel for VR - ALL Cloudflare Stream videos (26 videos in numerical order)
 const TECHNIQUE_CARDS_DATA = [
+  { id: 'latora-1', label: '1', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/d73bbb83d1be4f88fd829a2d5f49b37f/manifest/video.m3u8' },
+  { id: 'latora-3', label: '3', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/ca43a60a724a3d682490bfee8e0bb965/manifest/video.m3u8' },
+  { id: 'latora-4', label: '4', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/29fb5fadfb051b4db93725f893db934a/manifest/video.m3u8' },
   { id: 'latora-5', label: '5', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/5cdbae66f8ee0443d77fcae0bceef3c3/manifest/video.m3u8' },
   { id: 'latora-7', label: '7', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/2873ac9fa68aebe40b468ac8fed3a464/manifest/video.m3u8' },
+  { id: 'latora-8', label: '8', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/c0dcd8134f3bfb758ad714b5ec23e45d/manifest/video.m3u8' },
+  { id: 'latora-9', label: '9', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/631286cc03ab2740a61bd91e5c32c367/manifest/video.m3u8' },
   { id: 'latora-10', label: '10', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/c82782d6c1e7510af33f6a4ad4316da2/manifest/video.m3u8' },
   { id: 'latora-11', label: '11', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/ca81241e5191d111efa9b61a071fd6f6/manifest/video.m3u8' },
+  { id: 'latora-12', label: '12', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/f15aa06d795b0bfb8b5f5ed58c83a05b/manifest/video.m3u8' },
+  { id: 'latora-13', label: '13', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/575a880bd5aa1f5d3ca6d6b70b863912/manifest/video.m3u8' },
+  { id: 'latora-14', label: '14', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/37478d9b5def9d87b54089f3ed25abe8/manifest/video.m3u8' },
+  { id: 'latora-16', label: '16', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/3b38446f416732b63a88da593cf924d4/manifest/video.m3u8' },
   { id: 'latora-17', label: '17', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/adb7f414e7fa2cd2f732487fc02c9cc6/manifest/video.m3u8' },
   { id: 'latora-18', label: '18', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/608b4a61372622c7cb80e596c85121a6/manifest/video.m3u8' },
+  { id: 'latora-19', label: '19', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/f7a669ca97fc4016c2058e0b7e0f20f3/manifest/video.m3u8' },
   { id: 'latora-20', label: '20', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/0b1cd41fcb5bcbbaf21ce5b4a5fd90f7/manifest/video.m3u8' },
   { id: 'latora-21', label: '21', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/ca7f17ed70094a93542b4ed81b3dfa92/manifest/video.m3u8' },
   { id: 'latora-22', label: '22', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/d9900e316d59f37a7277f732e1056b50/manifest/video.m3u8' },
@@ -1424,20 +1434,21 @@ const TECHNIQUE_CARDS_DATA = [
   { id: 'latora-27', label: '27', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/aca2f7cd37a92a8584cc5557885e5464/manifest/video.m3u8' },
   { id: 'latora-28', label: '28', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/10f96e361fb7bc9fba72e03cab627bf2/manifest/video.m3u8' },
   { id: 'latora-29', label: '29', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/92f373dcd7f6ef1ffd56f82cade76d2b/manifest/video.m3u8' },
+  { id: 'latora-30', label: '30', videoUrl: 'https://customer-gozi8qaaq1gycqie.cloudflarestream.com/62021d0ebac3c0d19e2e82ab015a823b/manifest/video.m3u8' },
 ] as const;
 
 const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((card, index) => {
-  // Grid layout: 5 columns x 3 rows = 15 cards
-  const cols = 5;
-  const xSpacing = 2.0; // Closer together
+  // Grid layout: 6 columns x 5 rows = 30 positions (26 videos)
+  const cols = 6;
+  const xSpacing = 1.8; // Slightly tighter for 6 columns
   const ySpacing = 1.8; // Closer together vertically
   const zDistance = -4; // Closer to user
 
-  const col = index % cols; // 0-4
-  const row = Math.floor(index / cols); // 0, 1, 2
+  const col = index % cols; // 0-5
+  const row = Math.floor(index / cols); // 0, 1, 2, 3, 4
 
   // Center the grid horizontally
-  const x = (col - (cols - 1) / 2) * xSpacing; // -4, -2, 0, 2, 4
+  const x = (col - (cols - 1) / 2) * xSpacing; // -4.5, -2.7, -0.9, 0.9, 2.7, 4.5
   const y = CARD_BASE_HEIGHT + 1.5 - (row * ySpacing); // Top to bottom
 
   const z = zDistance;
