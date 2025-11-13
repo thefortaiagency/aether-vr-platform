@@ -1000,13 +1000,20 @@ function CoachChatCard({
       setIsListening(true);
       setCoachResponse("I'm listening...");
 
-      // Set timeout to auto-stop after 8 seconds
+      // Set timeout to auto-stop after 5 seconds
       listeningTimeoutRef.current = setTimeout(() => {
         console.log('⏱️ Listening timeout - stopping recognition');
         if (recognitionRef.current) {
-          recognitionRef.current.stop();
+          try {
+            recognitionRef.current.stop();
+          } catch (err) {
+            console.error('Error stopping recognition:', err);
+          }
         }
-      }, 8000);
+        // Force UI state update
+        setIsListening(false);
+        setCoachResponse("Didn't hear anything. Try again!");
+      }, 5000);
     };
 
     recognition.onresult = async (event: any) => {
