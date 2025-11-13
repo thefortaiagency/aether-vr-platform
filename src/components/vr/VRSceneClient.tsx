@@ -928,7 +928,7 @@ function TechniqueCard({
 
 // Coach Image Component
 function CoachImage() {
-  const texture = useTexture('/reecehumphrey.png');
+  const texture = useTexture('/latora.jpg');
 
   return (
     <mesh position={[0, 0.2, CARD_DEPTH / 2 + 0.11]}>
@@ -1311,16 +1311,16 @@ function CoachChatCard({
         <meshBasicMaterial color="#0a0b10" />
       </mesh>
 
-      {/* Coach Andy title */}
+      {/* Coach title */}
       <Text
         position={[0, cardHeight / 2 - 0.2, CARD_DEPTH / 2 + 0.12]}
-        fontSize={0.18}
+        fontSize={0.16}
         color="#d4af37"
         anchorX="center"
         anchorY="middle"
         maxWidth={cardWidth - 0.4}
       >
-        COACH ANDY
+        LATORA LEG CAMP
       </Text>
 
       {/* Coach Andy Image */}
