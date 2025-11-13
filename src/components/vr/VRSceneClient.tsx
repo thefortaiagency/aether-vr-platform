@@ -1467,8 +1467,8 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((c
   const z = -radius * Math.cos(angle);
 
   // Calculate rotation to face inward toward center
-  // atan2 gives us the angle from center to the card, we need the opposite
-  const rotationY = Math.atan2(x, z);
+  // atan2 gives us the angle from center to the card, add PI to flip 180° inward
+  const rotationY = Math.atan2(x, z) + Math.PI;
 
   return {
     id: card.id,
