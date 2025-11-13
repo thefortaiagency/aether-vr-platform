@@ -960,6 +960,7 @@ function CoachChatCard({
   const [isListening, setIsListening] = React.useState(false);
   const [isProcessing, setIsProcessing] = React.useState(false);
   const recognitionRef = React.useRef<any>(null);
+  const listeningTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Drag handling
   const cardRef = React.useRef<THREE.Group>(null);
@@ -998,9 +999,23 @@ function CoachChatCard({
       console.log('🎤 Speech recognition started');
       setIsListening(true);
       setCoachResponse("I'm listening...");
+
+      // Set timeout to auto-stop after 8 seconds
+      listeningTimeoutRef.current = setTimeout(() => {
+        console.log('⏱️ Listening timeout - stopping recognition');
+        if (recognitionRef.current) {
+          recognitionRef.current.stop();
+        }
+      }, 8000);
     };
 
     recognition.onresult = async (event: any) => {
+      // Clear timeout since speech was detected
+      if (listeningTimeoutRef.current) {
+        clearTimeout(listeningTimeoutRef.current);
+        listeningTimeoutRef.current = null;
+      }
+
       const transcript = event.results[0][0].transcript;
       console.log('🗣️ Speech detected:', transcript);
       setCoachResponse(`You: "${transcript}"`);
@@ -1036,6 +1051,12 @@ function CoachChatCard({
     };
 
     recognition.onerror = (event: any) => {
+      // Clear timeout on error
+      if (listeningTimeoutRef.current) {
+        clearTimeout(listeningTimeoutRef.current);
+        listeningTimeoutRef.current = null;
+      }
+
       console.error('❌ Speech recognition error:', event.error, event);
       setIsListening(false);
       setIsProcessing(false);
@@ -1052,6 +1073,11 @@ function CoachChatCard({
     };
 
     recognition.onend = () => {
+      // Clear timeout when recognition ends
+      if (listeningTimeoutRef.current) {
+        clearTimeout(listeningTimeoutRef.current);
+        listeningTimeoutRef.current = null;
+      }
       setIsListening(false);
     };
 
@@ -1069,6 +1095,11 @@ function CoachChatCard({
       e.stopPropagation();
     }
     if (isListening) {
+      // Clear timeout when manually stopping
+      if (listeningTimeoutRef.current) {
+        clearTimeout(listeningTimeoutRef.current);
+        listeningTimeoutRef.current = null;
+      }
       recognitionRef.current?.stop();
     } else if (!isProcessing && recognitionRef.current) {
       try {
