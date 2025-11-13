@@ -1450,8 +1450,10 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((c
 
   // Determine which row (0 = top, 1 = bottom)
   const row = cardPosition < cardsPerRow ? 0 : 1;
-  const positionInRow = row === 0 ? cardPosition : cardPosition - cardsPerRow;
-  const cardsInThisRow = row === 0 ? cardsPerRow : (totalPositions - cardsPerRow);
+  // Both rows have 13 cards (positions 1-13 and 14-26)
+  const actualCardsInRow = 13;
+  const positionInRow = row === 0 ? (cardPosition - 1) : (cardPosition - cardsPerRow);
+  const cardsInThisRow = actualCardsInRow;
 
   // Height for each row
   const topRowHeight = CARD_BASE_HEIGHT + 2.0; // Higher
@@ -1459,9 +1461,9 @@ const TECHNIQUE_CARD_PRESETS: TechniqueCardState[] = TECHNIQUE_CARDS_DATA.map((c
   const y = row === 0 ? topRowHeight : bottomRowHeight;
 
   // Calculate angle for this card in its row (in radians)
-  // Offset top row by half the bottom row spacing to center cards between bottom cards
-  const bottomRowSpacing = (Math.PI * 2) / (totalPositions - cardsPerRow); // 2π / 13
-  const angleOffset = row === 0 ? bottomRowSpacing / 2 : 0; // Offset top row only
+  // Both rows have 13 cards, offset top row by half spacing to interleave perfectly
+  const bottomRowSpacing = (Math.PI * 2) / actualCardsInRow; // 2π / 13
+  const angleOffset = row === 0 ? bottomRowSpacing / 2 : 0; // Offset top row by π/13
   const angle = (positionInRow / cardsInThisRow) * Math.PI * 2 + angleOffset;
 
   // Calculate position on circle
