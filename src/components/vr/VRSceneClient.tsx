@@ -961,6 +961,7 @@ function CoachChatCard({
   const [isProcessing, setIsProcessing] = React.useState(false);
   const recognitionRef = React.useRef<any>(null);
   const listeningTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const isStoppingRef = React.useRef(false);
 
   // Drag handling
   const cardRef = React.useRef<THREE.Group>(null);
@@ -996,23 +997,38 @@ function CoachChatCard({
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
+      // Prevent re-entry if we're already stopping
+      if (isStoppingRef.current) {
+        console.log('⚠️ Ignoring onstart - already stopping');
+        return;
+      }
+
       console.log('🎤 Speech recognition started');
       setIsListening(true);
       setCoachResponse("I'm listening...");
 
       // Set timeout to auto-stop after 5 seconds
       listeningTimeoutRef.current = setTimeout(() => {
-        console.log('⏱️ Listening timeout - stopping recognition');
+        console.log('⏱️ Listening timeout - ABORTING recognition');
+        isStoppingRef.current = true;
+
         if (recognitionRef.current) {
           try {
-            recognitionRef.current.stop();
+            // Use abort() instead of stop() - more forceful, no events fired
+            recognitionRef.current.abort();
           } catch (err) {
-            console.error('Error stopping recognition:', err);
+            console.error('Error aborting recognition:', err);
           }
         }
+
         // Force UI state update
         setIsListening(false);
         setCoachResponse("Didn't hear anything. Try again!");
+
+        // Reset flag after a brief delay
+        setTimeout(() => {
+          isStoppingRef.current = false;
+        }, 500);
       }, 5000);
     };
 
@@ -1022,6 +1038,9 @@ function CoachChatCard({
         clearTimeout(listeningTimeoutRef.current);
         listeningTimeoutRef.current = null;
       }
+
+      // Reset stopping flag
+      isStoppingRef.current = false;
 
       const transcript = event.results[0][0].transcript;
       console.log('🗣️ Speech detected:', transcript);
@@ -1063,6 +1082,9 @@ function CoachChatCard({
         clearTimeout(listeningTimeoutRef.current);
         listeningTimeoutRef.current = null;
       }
+
+      // Reset stopping flag
+      isStoppingRef.current = false;
 
       console.error('❌ Speech recognition error:', event.error, event);
       setIsListening(false);
@@ -1107,8 +1129,15 @@ function CoachChatCard({
         clearTimeout(listeningTimeoutRef.current);
         listeningTimeoutRef.current = null;
       }
-      recognitionRef.current?.stop();
-    } else if (!isProcessing && recognitionRef.current) {
+      isStoppingRef.current = true;
+      recognitionRef.current?.abort();
+      setIsListening(false);
+
+      // Reset flag after brief delay
+      setTimeout(() => {
+        isStoppingRef.current = false;
+      }, 500);
+    } else if (!isProcessing && !isStoppingRef.current && recognitionRef.current) {
       try {
         console.log('🎤 Starting speech recognition...');
         recognitionRef.current.start();
