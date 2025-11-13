@@ -22,7 +22,7 @@ function VRTraining() {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [recording, setRecording] = useState(false);
-  const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | undefined>('/trainingmode.png');
+  const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | undefined>('/newbackground.png');
   const [panoramaReady, setPanoramaReady] = useState(false);
   const [screenshotFlash, setScreenshotFlash] = useState(false);
   const [screenshotStatus, setScreenshotStatus] = useState('');
